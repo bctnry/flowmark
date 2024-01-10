@@ -39,7 +39,7 @@ proc `$`(x: Fncall): string =
   return "Fncall(" & $x.fntype & "," & $x.mark & ")"
 
 var neutral: string = ""
-var active: seq[string] = @[]
+var active: ActiveBuffer = @[]
 const idle: string = "\\print(% )\\print(\\read.str)"
 var meta: char = ';'
 var fncalls: seq[Fncall] = @[]
@@ -90,14 +90,11 @@ proc performOperation(): ExecVerdict =
   return ExecVerdict(shouldContinue: shouldContinue, res: res)
 
 
-proc currentPieceLen(x: seq[string]): int =
-  return x[^1].len()
-  
 proc process*(initActive: string = idle, reloadIdle: bool = true): void =
   forms = initTable[string,Macro]()
   freeformMacros = initTable[string,string]()
   neutral = ""
-  active = @[initActive]
+  active = activeBufferFromString(initActive)
   errorList = @[]
   var line = 0
   var col = 0
@@ -112,65 +109,65 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
         activeLen = active.currentPieceLen()
       else:
         if reloadIdle:
-          active[0] = idle
+          active[0].buf = idle
           activeLen = active.currentPieceLen()
           i = 0
           continue
         else:
           break
-    elif active[^1][i] == '(':
+    elif active[^1].buf[i] == '(':
       var i_1 = i+1
       var cnt = 0
       while i_1 < activeLen and cnt >= 0:
-        if active[^1][i_1] == '(': cnt += 1
-        elif active[^1][i_1] == ')': cnt -= 1
+        if active[^1].buf[i_1] == '(': cnt += 1
+        elif active[^1].buf[i_1] == ')': cnt -= 1
         i_1 += 1
       if cnt >= 0:
         neutral = ""
         if active.len() > 1:
           discard active.pop()
           activeLen = active.currentPieceLen()
-        else: active[0] = idle
+        else: active[0].buf = idle
         i = 0
         continue
       else:
-        neutral &= active[^1][i+1..<i_1-1]
+        neutral &= active[^1].buf[i+1..<i_1-1]
         i = i_1
         continue
-    elif active[^1][i] == '\\':
+    elif active[^1].buf[i] == '\\':
       i += 1
       if i >= activeLen:
         neutral = ""
         if active.len() > 1: discard active.pop()
-        else: active[0] = idle
+        else: active[0].buf = idle
         i = 0
         continue
-      elif active[^1][i] == '(' or (active[^1][i] == '\\' and i+1 < activeLen and active[^1][i+1] == '('):
-        var i_1 = if (i < activeLen and active[^1][i] == '('): i+1 else: i+2
+      elif active[^1].buf[i] == '(' or (active[^1].buf[i] == '\\' and i+1 < activeLen and active[^1].buf[i+1] == '('):
+        var i_1 = if (i < activeLen and active[^1].buf[i] == '('): i+1 else: i+2
         var cnt = 0
         while i_1 < activeLen and cnt >= 0:
-          if active[^1][i_1] == '(': cnt += 1
-          elif active[^1][i_1] == ')': cnt -= 1
+          if active[^1].buf[i_1] == '(': cnt += 1
+          elif active[^1].buf[i_1] == ')': cnt -= 1
           i_1 += 1
         if cnt >= 0:
           neutral = ""
           if active.len() > 1: discard active.pop()
-          else: active[0] = idle
+          else: active[0].buf = idle
           i = 0
           continue
         else:
           i = i_1
           continue
-      elif active[^1][i] == ' ' or active[^1][i] == '\t':
+      elif active[^1].buf[i] == ' ' or active[^1].buf[i] == '\t':
         var i_1 = i
-        while i_1 < activeLen and (active[^1][i] == ' ' or active[^1][i] == '\t'): i_1 += 1
+        while i_1 < activeLen and (active[^1].buf[i] == ' ' or active[^1].buf[i] == '\t'): i_1 += 1
         if i_1 >= activeLen:
           neutral = ""
           if active.len() > 1: discard active.pop()
-          else: active[0] = idle
+          else: active[0].buf = idle
           i = 0
           continue
-        elif active[^1][i_1] == '\\':
+        elif active[^1].buf[i_1] == '\\':
           i = i_1 + 1
           continue
         else:
@@ -178,30 +175,30 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
           continue
       else:
         var fntype: FncallType = ACTIVE
-        if active[^1][i] == '\\':
+        if active[^1].buf[i] == '\\':
           fntype = NEUTRAL
           i += 1
-        if active[^1][i] in "#~`$%^&": continue
+        if active[^1].buf[i] in "#~`$%^&": continue
         var i_1 = i
-        while i_1 < activeLen and not (active[^1][i_1] in " \t()"): i_1 += 1
+        while i_1 < activeLen and not (active[^1].buf[i_1] in " \t()"): i_1 += 1
         if i_1 == i+1 and i_1 >= activeLen:
           neutral = ""
           if active.len() > 1: discard active.pop()
-          else: active[0] = idle
+          else: active[0].buf = idle
           i = 0
           continue
         # NOTE: fnName here can't be empty since that case is already handled above.
-        let fnName = active[^1][i..<i_1]
+        let fnName = active[^1].buf[i..<i_1]
         fncalls.add(Fncall(fntype: fntype, mark: @[neutral.len()]))
         neutral &= fnName
         fncalls[^1].mark.add(neutral.len())
-        if i_1 >= activeLen or active[^1][i_1] != '(':
+        if i_1 >= activeLen or active[^1].buf[i_1] != '(':
           # NOTE: this case act as if the right paren has reached; we have to do
           #       everything here.
           var fnres = performOperation()
           if not fnres.shouldContinue: break
           if fntype == ACTIVE:
-            active[^1] = fnres.res & active[^1][i_1..<activeLen]
+            active[^1].buf = fnres.res & active[^1].buf[i_1..<activeLen]
             i = 0
             continue
           elif fntype == NEUTRAL:
@@ -211,40 +208,40 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
         else:
           i = i_1+1
           continue
-    elif active[^1][i] == '@':
+    elif active[^1].buf[i] == '@':
       if i+1 < activeLen:
-        neutral.add(active[^1][i+1])
+        neutral.add(active[^1].buf[i+1])
         i += 2
       else:
-        neutral.add(active[^1][i])
+        neutral.add(active[^1].buf[i])
         i += 1
       continue
     # TODO: add support for freeform macro
-    elif active[^1][i] == ',':
+    elif active[^1].buf[i] == ',':
       if fncalls.len() < 0:
         neutral.add(',')
       else:
         fncalls[^1].mark.add(neutral.len())
       i += 1
       continue
-    elif active[^1][i] == ')':
+    elif active[^1].buf[i] == ')':
       let latestFncall = fncalls[^1]
       latestFncall.mark.add(neutral.len())
       var fnres = performOperation()
       if not fnres.shouldContinue: break
       if latestFncall.fntype == ACTIVE:
-        active[^1] = fnres.res & active[^1][i+1..<activeLen]
+        active[^1].buf = fnres.res & active[^1].buf[i+1..<activeLen]
         i = 0
         continue
       elif latestFncall.fntype == NEUTRAL:
         neutral &= fnres.res
         i += 1
         continue
-    elif active[^1][i] in "\n\r\v":
+    elif active[^1].buf[i] in "\n\r\v":
       i += 1
       continue
     else:
-      neutral.add(active[^1][i])
+      neutral.add(active[^1].buf[i])
       i += 1
       continue
 
