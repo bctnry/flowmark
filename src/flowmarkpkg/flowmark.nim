@@ -39,6 +39,26 @@ proc `$`(x: FncallType): string =
   )
 proc `$`(x: Fncall): string =
   return "Fncall(" & $x.fntype & "," & $x.mark & ")"
+proc `$`(x: MacroPieceType): string =
+  return (
+    case x:
+      of GAP: "GAP"
+      of TEXT: "TEXT"
+  )
+proc `$`(x: MacroPiece): string =
+  return (
+    case x.ptype:
+      of GAP: "<" & $x.gapnum & ">"
+      of TEXT: x.content
+  )
+
+proc `$`(x: Macro): string =
+  var res = @["Macro[", $x.fp, ",{"]
+  for p in x.pieceList:
+    res.add($p)
+    res.add(",")
+  res.add("}]")
+  return res.join()
 
 var neutral: string = ""
 var active: ActiveBuffer = @[]
@@ -79,36 +99,88 @@ proc getargs(x: seq[int]): seq[string] =
     i += 1
   return res
 
+proc validInteger(x: string): bool =
+  var i = 0
+  while i < x.len():
+    if ord(x[i]) < ord('0') or ord('9') < ord(x[i]): return false
+    i += 1
+  return true
+
+proc makeMacro(name: string, call: seq[string]): void =
+  if not forms.hasKey(name): return
+  var mappingTable: Table[string,int] = initTable[string,int]()
+  for i in 2..<call.len():
+    mappingTable[call[i]] = i-1
+  var newPieceList: seq[MacroPiece] = @[]
+  for p in forms[name].pieceList:
+    if p.ptype == GAP:
+      newPieceList.add(p)
+      continue
+    var i = 0
+    let pContentLen = p.content.len()
+    var shouldContinueImmediately = false
+    var last_i = 0
+    while i < pContentLen:
+      if p.content[i] == '<':
+        var i_1 = i+1
+        while i_1 < pContentLen and not (p.content[i_1] in "<>;"):
+          i_1 += 1
+        if i_1 < pContentLen and p.content[i_1] == '>':
+          let idx = p.content[i+1..<i_1]
+          let isIndexValidInteger = validInteger(idx)
+          let isIndexIncludedInCall = mappingTable.hasKey(idx)
+          if isIndexValidInteger or isIndexIncludedInCall:
+            newPieceList.add(MacroPiece(ptype: TEXT, content: p.content[last_i..<i]))
+            newPieceList.add(MacroPiece(ptype: GAP, gapnum: if isIndexValidInteger: idx.parseInt() else: mappingTable[idx]))
+            last_i = i_1+1
+          i = i_1+1
+        elif i_1 >= pContentLen:
+          newPieceList.add(p)
+          shouldContinueImmediately = true
+          break
+        else:
+          i = i_1 + 1
+          continue
+        i = i_1+1
+      else:
+        i += 1
+    if shouldContinueImmediately: continue
+    if last_i < pContentLen:
+      newPieceList.add(MacroPiece(ptype: TEXT, content: p.content[last_i..<pContentLen]))
+  forms[name].pieceList = newPieceList
 proc readStrTillMeta*(): string =
   var res: string = ""
-  try:
-    while true:
-      let ch = stdin.readChar()
-      # echo "getch=", ch
-      if ch == meta: return res
+  while true:
+    let ch = stdin.readChar()
+    if ch == meta: return res
+    res.add(ch)
+  return res
 
-      res.add(ch)
-  except:
-    return res
-  
+# This calls the function, like the "apply" in the eval/apply loop.
 proc performOperation(): ExecVerdict =
   let fncall = fncalls.pop()
   # echo "fncalls ", fncalls
   let args = getargs(fncall.mark)
+  # echo "args=", args
   neutral = neutral[0..<fncall.mark[0]]
   var shouldContinue = true
   var res = ""
   case args[0]:
+    of "comment":
+      res = ""
     of "read.str":
-      res = readStrTillMeta()
+      let readres = readStrTillMeta()
+      res = readres
     of "print":
       stdout.write(args[1])
       stdout.flushFile()
       res = ""
+    of "print.form":
+      stdout.write($forms[args[1]])
+      stdout.flushFile()
+      res = ""
     of "halt":
       shouldContinue = false
-    of "test":
-      res = if args[1] == args[2]: "yes" else: "no"
     of "def":
       defineForm(args[1], args[2])
       res = ""
@@ -128,6 +200,9 @@ proc performOperation(): ExecVerdict =
         res = ""
       else:
         res = callres.get()
+    of "init.macro":
+      makeMacro(args[1], args)
+      res = ""
     else:
       res = ""
   return ExecVerdict(shouldContinue: shouldContinue, res: res)
