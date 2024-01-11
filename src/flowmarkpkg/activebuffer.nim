@@ -12,9 +12,8 @@ type
 proc activeBufferFromString*(x: string): ActiveBuffer =
   return @[ActiveBufferPiece(i: 0, buf: x)]
 
-proc appendLeft*(x: var ActiveBuffer, s: string): ActiveBuffer =
+proc pushNew*(x: var ActiveBuffer, s: string): void =
   x.add(ActiveBufferPiece(i: 0, buf: s))
-  return x
 
 # INVARIANT: the top of the stack is immediately removed whenever
 #            the pointer reaches the right-most position.
@@ -27,6 +26,12 @@ proc moveToNextCharacter*(x: var ActiveBuffer): void =
 
 proc currentPieceLen*(x: ActiveBuffer): int =
   return x[^1].buf.len()
+
+proc currentPieceI*(x: ActiveBuffer): int =
+  return x[^1].i
+
+proc setCurrentPieceI*(x: var ActiveBuffer, i: int): void =
+  x[^1].i = i
 
 proc isEmpty*(x: ActiveBuffer): bool =
   return x.len() == 0
