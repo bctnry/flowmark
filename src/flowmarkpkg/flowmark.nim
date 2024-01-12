@@ -3,6 +3,8 @@ import std/syncio
 import std/options
 import std/strutils
 import activebuffer
+import read
+
 
 type
   FncallType = enum
@@ -63,11 +65,11 @@ proc `$`(x: Macro): string =
 var neutral: string = ""
 var active: ActiveBuffer = @[]
 const idle: string = "\\print((% ))\\print(\\read.str)"
-var meta: char = ';'
 var fncalls: seq[Fncall] = @[]
 var forms: Table[string,Macro]
 var freeformMacros: Table[string,string]
 var errorList: seq[FMError]
+var shouldReplContinue: bool = true
 
 proc defineForm(name: string, body: string): void =
   forms[name] = Macro(fp: 0, pieceList: @[MacroPiece(ptype: TEXT, content: body)])
@@ -148,20 +150,15 @@ proc makeMacro(name: string, call: seq[string]): void =
     if last_i < pContentLen:
       newPieceList.add(MacroPiece(ptype: TEXT, content: p.content[last_i..<pContentLen]))
   forms[name].pieceList = newPieceList
+  
 proc readStrTillMeta*(): string =
-  var res: string = ""
-  while true:
-    let ch = stdin.readChar()
-    if ch == meta: return res
-    res.add(ch)
-  return res
+  let s = readStr()
+  return if s.isNone(): "" else: s.get()
 
 # This calls the function, like the "apply" in the eval/apply loop.
 proc performOperation(): ExecVerdict =
   let fncall = fncalls.pop()
-  # echo "fncalls ", fncalls
   let args = getargs(fncall.mark)
-  # echo "args=", args
   neutral = neutral[0..<fncall.mark[0]]
   var shouldContinue = true
   var res = ""
@@ -181,6 +178,7 @@ proc performOperation(): ExecVerdict =
       res = ""
     of "halt":
       shouldContinue = false
+      shouldReplContinue = false
     of "def":
       defineForm(args[1], args[2])
       res = ""
@@ -212,35 +210,27 @@ proc reloadActive(str: string = idle): void =
   active[0].buf = idle
   active[0].i = 0
 
-proc process*(initActive: string = idle, reloadIdle: bool = true): void =
+proc initEnv*(): void =
   forms = initTable[string,Macro]()
   freeformMacros = initTable[string,string]()
   neutral = ""
-  active = activeBufferFromString(initActive)
   errorList = @[]
-  var line = 0
-  var col = 0
+  shouldReplContinue = true
+
+proc process*(source: string = idle): bool =
+  active.pushNew(source)
   var i = 0
   var activeLen = active.currentPieceLen()
-  while true:
+  while active.len() > 0:
     activeLen = active.currentPieceLen()
     i = active.currentPieceI()
-    # echo "active=", active[^1].buf[i..<active.currentPieceLen()], " neutral=", neutral
     if active.currentPieceI() >= activeLen:
       if active.len() > 1:
         discard active.pop()
         activeLen = active.currentPieceLen()
         i = active.currentPieceI()
       else:
-        if reloadIdle:
-          neutral = ""
-          # reload idle.
-          reloadActive(idle)
-          activeLen = active.currentPieceLen()
-          i = active.currentPieceI()
-          continue
-        else:
-          break
+        break
     elif active[^1].buf[i] == '(':
       var i_1 = i+1
       var cnt = 0
@@ -255,13 +245,7 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
           activeLen = active.currentPieceLen()
           i = active.currentPieceI()
         else:
-          if reloadIdle:
-            reloadActive(idle)
-            activeLen = active.currentPieceLen()
-            i = active.currentPieceI()
-            continue
-          else:
-            break
+          break
         continue
       else:
         neutral &= active[^1].buf[i+1..<i_1-1]
@@ -274,10 +258,8 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
         neutral = ""
         if active.len() > 1:
           discard active.pop()
-        else:
-          reloadActive(idle)
-        activeLen = active.currentPieceLen()
-        i = active.currentPieceI()
+          activeLen = active.currentPieceLen()
+          i = active.currentPieceI()
         continue
       elif active[^1].buf[i] == '(' or (active[^1].buf[i] == '\\' and i+1 < activeLen and active[^1].buf[i+1] == '('):
         var i_1 = if (i < activeLen and active[^1].buf[i] == '('): i+1 else: i+2
@@ -290,24 +272,22 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
           neutral = ""
           if active.len() > 1:
             discard active.pop()
-          else:
-            reloadActive(idle)
-          activeLen = active.currentPieceLen()
-          i = active.currentPieceI()
+            activeLen = active.currentPieceLen()
+            i = active.currentPieceI()
           continue
         else:
           i = i_1
           active.setCurrentPieceI(i)
           continue
-      elif active[^1].buf[i] == ' ' or active[^1].buf[i] == '\t':
+      elif active[^1].buf[i] in " \t":
         var i_1 = i
         while i_1 < activeLen and (active[^1].buf[i] == ' ' or active[^1].buf[i] == '\t'): i_1 += 1
         if i_1 >= activeLen:
           neutral = ""
-          if active.len() > 1: discard active.pop()
-          else: reloadActive(idle)
-          activeLen = active.currentPieceLen()
-          i = active.currentPieceI()
+          if active.len() > 1:
+            discard active.pop()
+            activeLen = active.currentPieceLen()
+            i = active.currentPieceI()
           continue
         elif active[^1].buf[i_1] == '\\':
           i = i_1 + 1
@@ -324,13 +304,13 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
           i += 1
         if active[^1].buf[i] in "#~`$%^&": continue
         var i_1 = i
-        while i_1 < activeLen and not (active[^1].buf[i_1] in " \t()"): i_1 += 1
+        while i_1 < activeLen and not (active[^1].buf[i_1] in " \t\n\r\v()"): i_1 += 1
         if i_1 == i+1 and i_1 >= activeLen:
           neutral = ""
-          if active.len() > 1: discard active.pop()
-          else: reloadActive(idle)
-          activeLen = active.currentPieceLen()
-          i = active.currentPieceI()
+          if active.len() > 1:
+            discard active.pop()
+            activeLen = active.currentPieceLen()
+            i = active.currentPieceI()
           continue
         # NOTE: fnName here can't be empty since that case is already handled above.
         let fnName = active[^1].buf[i..<i_1]
@@ -395,7 +375,6 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
     else:
       var ffmFound = false
       for ffm in freeformMacros.keys:
-        # echo "cheching ff ", ffm, "..."
         if i+ffm.len() < activeLen:
           if active[^1].buf[i..<i+ffm.len()] == ffm:
             i += ffm.len()
@@ -403,7 +382,6 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
             active.pushNew(freeformMacros[ffm])
             i = active.currentPieceI()
             activeLen = active.currentPieceLen()
-            # echo "success. active=", active.currentPieceI(), " ", active[^1].buf
             ffmFound = true
             break
       if ffmFound: continue
@@ -411,5 +389,5 @@ proc process*(initActive: string = idle, reloadIdle: bool = true): void =
       i += 1
       active.setCurrentPieceI(i)
       continue
-
+  return shouldReplContinue
 
