@@ -10,9 +10,8 @@ import flowmarkpkg/read
 # flowmark -i    -    show repl.
 # flowmark -f [file]    -    use [file] as input.
 when isMainModule:
-  var prompt = ""
+  var prompt = "% "
   var file = stdin
-  var replMode = false
   if paramCount() >= 1:
     if paramStr(1) == "-v":
       echo "0.1.0"
@@ -22,24 +21,23 @@ when isMainModule:
 Usage:
 flowmark -v    -    show version.
 flowmark -h    -    show help.
-flowmark -i    -    start repl.
 flowmark -i [file] -    use [file] as input (repl mode.)
 flowmark [file]    -    use [file] as input.
 """)
       quit(0)
     elif paramStr(1) == "-i":
-      replMode = true
       if paramCount() >= 2:
         file = open(paramStr(2), fmRead)
     else:
       file = open(paramStr(1), fmRead)
 
   initEnv()
+  registerSourceFile(file)
   if file != stdin:
     while true:
       stdout.write(prompt)
       stdout.flushFile()
-      let z = readStr(file)
+      let z = readStrFromSourceFile()
       if z.isNone(): break
       let pres = process(z.get())
       if not pres: break

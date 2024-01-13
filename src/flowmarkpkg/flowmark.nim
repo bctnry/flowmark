@@ -108,6 +108,18 @@ proc validInteger(x: string): bool =
     i += 1
   return true
 
+proc validBit(x: string): bool =
+  var i = 0
+  while i < x.len():
+    if not (x[i] in "01"): return false
+    i += 1
+  return true
+
+proc andBit(x: string, y: string): bool =
+  discard "fix this"
+  var i = max(x.len(), y.len()) - 1
+  
+
 proc makeMacro(name: string, call: seq[string]): void =
   if not forms.hasKey(name): return
   var mappingTable: Table[string,int] = initTable[string,int]()
@@ -216,7 +228,14 @@ proc performOperation(): ExecVerdict =
         res = callres.get()
 
     # Forward-reading primitives
-    # ...
+    of "next.char":
+      let ch = readCharFromSourceFile()
+      var chsh = ""
+      if not ch.isNone(): chsh.add(ch.get)
+      res = chsh
+    of "next.string":
+      let s = readLineFromSourceFile()
+      res = if s.isNone(): "" else: s.get()
 
     # Algorithmic primitives
     of "add.int":
