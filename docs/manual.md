@@ -12,9 +12,9 @@ The following is an example of the factorial function
 
 ```
 \def(Factorial,(\
-  \if.eq(<1>,0,\
+  \ifeq.int(<1>,0,\
     0,\
-    (\if.eq(<1>,1,1,(\mult.int(<1>,\call(Factorial,\sub.int(<1>,1))))))\
+    (\ifeq.int(<1>,1,1,(\mult.int(<1>,\call(Factorial,\sub.int(<1>,1))))))\
   )\
 ));
 \init.macro(Factorial);
@@ -27,8 +27,8 @@ The following is an example of a solution to the Tower of Hanoi problem.
 \def.free($,(\print((
 ))));
 \def(Hanoi,\
-  (\if.eq(<1>,0,,\
-    (\if.eq(<1>,1,\
+  (\ifeq.int(<1>,0,,\
+    (\ifeq.int(<1>,1,\
       (\print(Move from <from> to <to>)$),\
       (\call(Hanoi,\sub.int(<1>,1),<from>,<via>,<to>)\
       \print(Move from <from> to <to>)$\
