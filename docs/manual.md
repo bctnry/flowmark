@@ -117,15 +117,45 @@ The actual algorithm goes as follows:
 
 Note that this description of algorithm does not mention "idling procedure" like TRAC; this is because Flowmark is 
 
-## Defining text macros
+## Defining text macros in Flowmark
 
-All text macros (the normal ones, anyway)
+In Flowmark there are two kinds of macros, called normal macro and freeform macro respectively. 
+
+### Defining normal macro
+
+Normal macro is the same as plain-old macros in T64. In Flowmark, defining a normal macro is done in two steps:
+
++ Define a form with `\def`;
++ Turn the defined form with `\init.macro`.
+
+The syntax for normal macro in Flowmark is taken from TRAC T84: gaps are represented by integers surrounded with angle brackets `<>`. For example:
+
+```
+\def(STR,(The quick brown <2> jumps over the lazy <1>.));
+\init.macro(STR);
+```
+
+is equivalent to this in T64:
+
+```
+#(ds,STR,(The quick brown FOX jumps over the lazy DOG.))'
+#(ss,STR,DOG,FOX)'
+```
+
+One can also use _named gaps_ like this:
+
+```
+\def(STR,(The quick brown <FOX> jumps over the lazy <DOG>.));
+\init.macro(STR,DOG,FOX);
+```
+
+The end result is the same.
 
 ### Pieces
 
-A /piece/ (in Flowmark terminology) is a minimal semantically meaningful substring. A piece can be one of the followings:
+A *piece* (in Flowmark terminology) is a minimal semantically meaningful substring. A piece can be one of the followings:
 
-+ A single character that is not a part of any special construct (either by themselves being not a part of any special construct or by escaping with at-sign =@=);
++ A single character that is not a part of any special construct (either by themselves being not a part of any special construct or by escaping with at-sign `@`);
 + A function call, both active and neutral;
 + A whitespace escape sequence;
 + A freeform macro name (explained later);
@@ -134,22 +164,22 @@ The concept of piece in Flowmark is quite important; we'll see this very soon.
 
 ### Forward-reading
 
-Flowmark supports /forward-reading/, which allows text macros themselves to read the upcoming source text themselves instead of delegating the reading to the processing algorithm; this is similar to reader macro in LISPs, the difference being forward-reading occurs at runtime.
+Flowmark supports *forward-reading*, which allows text macros themselves to read the upcoming source text themselves instead of delegating the reading to the processing algorithm; this is similar to reader macro in LISPs, the difference being forward-reading occurs at runtime.
 
 ### Freeform macro
 
-A /freeform macro/ is a kind of "special text macro" that's directly expanded during the execution of the processing algorithm instead of full/partial calling (i.e. by primitives like =call= and =recite.*=)
+A *freeform macro* is a kind of "special text macro" that's directly expanded during the execution of the processing algorithm instead of full/partial calling (i.e. by primitives like `call` and `recite.*`)
 
 The name for a freeform macro can only contain the following characters:
 
-+ A hash =#=;
-+ A tilde =~=;
-+ A backtick =`=;
-+ A dollar sign =$=;
-+ A percent sign =%=;
-+ A circumflex =^=;
-+ An ampersand =&=;
-+ An underscore =_=;
++ A hash `#`;
++ A tilde `~`;
++ A backtick <code>`</code>;
++ A dollar sign `$`;
++ A percent sign `%`;
++ A circumflex `^`;
++ An ampersand `&`;
++ An underscore `_`;
 
 Although freeform macros do not have the ability to take an argument list, it can still handle the upcoming text by expanding into forward-reading primitives. Consider this example for defining syntax sugar for superscripts, subscripts and math mode in a possible typesetting library; one would define the freeform macro =^=, =_= and =$$= as follows:
 
@@ -198,14 +228,14 @@ Flowmark has the following partial calling primitives; all of them returns empty
 
 + `\recite.reset(NAME)`*: Returns empty string. Resets the form pointer of the form defined under the name `NAME`. Equivalent to `cr` in T64.
 + `\recite.char(NAME,Z)`*: Returns the single character pointed by the form pointer of the form defined under the name `NAME`. The form pointer of `NAME` is increased by one character. If the form pointer is already at the right-most position, `Z` is returned instead. Equivalent to `cc` in T64.
-+ `\recite.nchar(NAME,N,Z)`*: Returns the first `N` character from the form defined under the name `NAME` starting from the form pointer. `N` is treated as an integer. If `N` is not a valid-form integer, a warning is reported, and its first valid-form integer substring is used as a replacement. If there's less than `N` characters left, they're all returned, and the result would be shorter than `N` characters. If the form pointer is already at the right-most position, `Z` is returned instead. Equivalent to `cn` in T64.
-+ `\recite.next_piece(NAME,Z)`*: Returns the next piece after the form pointer of the form defined under the name =NAME=.
-+ `\recite.to_gap(NAME,Z)`*:
-+ `\recite.to_pattern(NAME,PAT,Z)`*:
++ `\recite.nchar(NAME,N,Z)` * : Returns the first `N` character from the form defined under the name `NAME` starting from the form pointer. `N` is treated as an integer. If `N` is not a valid-form integer, a warning is reported, and its first valid-form integer substring is used as a replacement. If there's less than `N` characters left, they're all returned, and the result would be shorter than `N` characters. If the form pointer is already at the right-most position, `Z` is returned instead. Equivalent to `cn` in T64.
++ `\recite.next_piece(NAME,Z)` * : Returns the next piece after the form pointer of the form defined under the name =NAME=.
++ `\recite.to_gap(NAME,Z)` * :
++ `\recite.to_pattern(NAME,PAT,Z)` * :
 
 ### Forward-reading primitives
 
-+ `\next.piece`*:
++ `\next.piece` * :
 + `\next.char`: Read the next character from the current source file. Returns an empty string when end-of-file is reached.
 + `\next.line`: Reads till the next linefeed from current source file. The result contains the read linefeed character. Returns an empty string when end-of-file is reached.
 
@@ -213,21 +243,21 @@ Flowmark has the following partial calling primitives; all of them returns empty
 
 + `\add.int(ARG1,...)`, `\sub.int(ARG1,...)`, `\mult.int(ARG1,...)`, `\div.int(ARG1,...)`
 + `\add.float(ARG1,...)`, `\sub.float(ARG1,...)`, `\mult.float(ARG1,...)`, `\div.float(ARG1,...)`
-+ `\eq.int(ARG1,ARG2)`*, `\le.int(ARG1,ARG2)`*, `\ge.int(ARG1,ARG2)`*, `\lt.int(ARG1,ARG2)`*, `\gt.int(ARG1,ARG2)*`:
-+ `\eq.float(ARG1,ARG2)`*, `\le.float(ARG1,ARG2)`*, `\ge.float(ARG1,ARG2)`*, `\lt.float(ARG1,ARG2)`*, `\gt.float(ARG1,ARG2)`*:
-+ `\and.bit(ARG1,ARG2)`*, `\or.bit(ARG1,ARG2)`*, `\not.bit(ARG1)`*, `\xor.bit(ARG1,ARG2)`*:
-+ `\and(ARG1,...)`*:
-+ `\or(ARG1,...)`*:
-+ `\not(ARG1,...)`*:
-+ `\is.empty(ARG1)`*:
-+ `\is.int(ARG1)`*:
-+ `\is.float(ARG1)`*:
-+ `\is.bit(ARG1)`*:
++ `\eq.int(ARG1,ARG2)` * , `\le.int(ARG1,ARG2)` * , `\ge.int(ARG1,ARG2)` * , `\lt.int(ARG1,ARG2)` * , `\gt.int(ARG1,ARG2)` * :
++ `\eq.float(ARG1,ARG2)` * , `\le.float(ARG1,ARG2)` * , `\ge.float(ARG1,ARG2)` * , `\lt.float(ARG1,ARG2)` * , `\gt.float(ARG1,ARG2)` * :
++ `\and.bit(ARG1,ARG2)` * , `\or.bit(ARG1,ARG2)` * , `\not.bit(ARG1)` * , `\xor.bit(ARG1,ARG2)` * :
++ `\and(ARG1,...)` * :
++ `\or(ARG1,...)` * :
++ `\not(ARG1,...)` * :
++ `\is.empty(ARG1)` * :
++ `\is.int(ARG1)` * :
++ `\is.float(ARG1)` * :
++ `\is.bit(ARG1)` * :
 
 ### I/O primitives
 
 + `\read.str`:
-+ `\read.piece`*:
++ `\read.piece` * :
 + `\print(X)`:
 + `\print.form(NAME)`:
 + `\print.free(PAT)`:
