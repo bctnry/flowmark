@@ -17,12 +17,7 @@ var meta = ';'
 proc changeMeta*(x: char): void =
   meta = x
 
-var source = stdin
-
-proc registerReadingSource*(x: File): void =
-  source = x
-  
-proc readStr*(): Option[string] =
+proc readStr*(source: File = stdin): Option[string] =
   var res: string = ""
   try:
     while true:

@@ -151,35 +151,30 @@ proc makeMacro(name: string, call: seq[string]): void =
       newPieceList.add(MacroPiece(ptype: TEXT, content: p.content[last_i..<pContentLen]))
   forms[name].pieceList = newPieceList
   
-proc readStrTillMeta*(): string =
-  let s = readStr()
+proc readStrTillMeta*(fromFile: File = stdin): string =
+  let s = readStr(fromFile)
   return if s.isNone(): "" else: s.get()
 
 # This calls the function, like the "apply" in the eval/apply loop.
 proc performOperation(): ExecVerdict =
   let fncall = fncalls.pop()
   let args = getargs(fncall.mark)
+  # echo "args=", args
   neutral = neutral[0..<fncall.mark[0]]
   var shouldContinue = true
   var res = ""
   case args[0]:
-    of "comment":
-      res = ""
-    of "read.str":
-      let readres = readStrTillMeta()
-      res = readres
-    of "print":
-      stdout.write(args[1])
-      stdout.flushFile()
-      res = ""
-    of "print.form":
-      stdout.write($forms[args[1]])
-      stdout.flushFile()
-      res = ""
+    # Miscellaneous primitives
     of "halt":
       shouldContinue = false
       shouldReplContinue = false
+    of "debug.list_names":
+      discard "fix this"
+      res = ""
+
+    # Form bookkeeping & macro-related
     of "def":
+      # echo "def ", args[1], " ", args[2]
       defineForm(args[1], args[2])
       res = ""
     of "def.free":
@@ -191,6 +186,27 @@ proc performOperation(): ExecVerdict =
         let content = args.safeIndex(2, "")
         defineFreeformMacro(sequence, content)
       res = ""
+    of "init.macro":
+      makeMacro(args[1], args)
+      res = ""
+    of "copy":
+      forms[args[2]] = forms[args[1]]
+      res = ""
+    of "move":
+      forms[args[2]] = forms[args[1]]
+      forms.del(args[1])
+      res = ""
+    of "del":
+      forms.del(args[1])
+      res = ""
+    of "del.all":
+      forms.clear()
+      res = ""
+    of "del.free":
+      freeformMacros.del(args[1])
+      res = ""
+
+    # Full calling & partial calling
     of "call":
       let callres = callForm(args[1], args)
       if callres.isNone:
@@ -198,9 +214,53 @@ proc performOperation(): ExecVerdict =
         res = ""
       else:
         res = callres.get()
-    of "init.macro":
-      makeMacro(args[1], args)
+
+    # Forward-reading primitives
+    # ...
+
+    # Algorithmic primitives
+    of "add.int":
+      res = $(args[1].strip().parseInt() + args[2].strip().parseInt())
+    of "sub.int":
+      res = $(args[1].strip().parseInt() - args[2].strip().parseInt())
+    of "mult.int":
+      res = $(args[1].strip().parseInt() * args[2].strip().parseInt())
+    of "div.int":
+      res = $(args[1].strip().parseInt() div args[2].strip().parseInt())
+    of "add.float":
+      res = $(args[1].strip().parseFloat() + args[2].strip().parseFloat())
+    of "sub.float":
+      res = $(args[1].strip().parseFloat() - args[2].strip().parseFloat())
+    of "mult.float":
+      res = $(args[1].strip().parseFloat() * args[2].strip().parseFloat())
+    of "div.float":
+      res = $(args[1].strip().parseFloat() / args[2].strip().parseFloat())
+
+    # I/O primitives
+    of "read.str":
+      let readres = readStrTillMeta()
+      res = readres
+    of "print":
+      stdout.write(args[1])
+      stdout.flushFile()
       res = ""
+    of "print.form":
+      stdout.write($forms[args[1]])
+      stdout.flushFile()
+      res = ""
+    of "print.free":
+      echo "args=", args
+      stdout.write(freeformMacros[args[1]])
+      stdout.flushFile()
+
+    # Branching
+    of "ifeq":
+      res = if args[1] == args[2]: args[3] else: args[4]
+    of "ifeq.int":
+      res = if args[1].strip().parseInt() == args[2].strip().parseInt(): args[3] else: args[4]
+    of "ifeq.float":
+      res = if args[1].strip().parseInt() == args[2].strip().parseInt(): args[3] else: args[4]
+
     else:
       res = ""
   return ExecVerdict(shouldContinue: shouldContinue, res: res)
@@ -218,6 +278,7 @@ proc initEnv*(): void =
   shouldReplContinue = true
 
 proc process*(source: string = idle): bool =
+  # echo "form=", forms
   active.pushNew(source)
   var i = 0
   var activeLen = active.currentPieceLen()
@@ -279,24 +340,12 @@ proc process*(source: string = idle): bool =
           i = i_1
           active.setCurrentPieceI(i)
           continue
-      elif active[^1].buf[i] in " \t":
+      elif active[^1].buf[i] in " \t\n\r\v":
         var i_1 = i
-        while i_1 < activeLen and (active[^1].buf[i] == ' ' or active[^1].buf[i] == '\t'): i_1 += 1
-        if i_1 >= activeLen:
-          neutral = ""
-          if active.len() > 1:
-            discard active.pop()
-            activeLen = active.currentPieceLen()
-            i = active.currentPieceI()
-          continue
-        elif active[^1].buf[i_1] == '\\':
-          i = i_1 + 1
-          active.setCurrentPieceI(i)
-          continue
-        else:
-          i = i_1
-          active.setCurrentPieceI(i)
-          continue
+        while i_1 < activeLen and (active[^1].buf[i_1] in " \t\n\r\v"): i_1 += 1
+        i = i_1
+        active.setCurrentPieceI(i)
+        continue
       else:
         var fntype: FncallType = ACTIVE
         if active[^1].buf[i] == '\\':
@@ -375,7 +424,7 @@ proc process*(source: string = idle): bool =
     else:
       var ffmFound = false
       for ffm in freeformMacros.keys:
-        if i+ffm.len() < activeLen:
+        if i+ffm.len() <= activeLen:
           if active[^1].buf[i..<i+ffm.len()] == ffm:
             i += ffm.len()
             active.setCurrentPieceI(i)
