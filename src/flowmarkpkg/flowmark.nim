@@ -2,6 +2,7 @@ import std/tables
 import std/syncio
 import std/options
 import std/strutils
+import std/sequtils
 import activebuffer
 import read
 
@@ -28,6 +29,7 @@ type
   FMError = ref object
     line*: int
     col*: int
+    fileName*: string
     reason*: string
   ExecVerdict = ref object
     shouldContinue*: bool
@@ -70,6 +72,85 @@ var forms: Table[string,Macro]
 var freeformMacros: Table[string,string]
 var errorList: seq[FMError]
 var shouldReplContinue: bool = true
+
+proc `$`(x: ActiveBufferPiece): string =
+  return "ABP(" & $x.i & "," & x.buf & ")"
+proc `$`(x: ActiveBuffer): string =
+  return x.mapIt($it).join(",")
+
+type
+  SourceFileStackEntry = ref object
+    line*: int
+    col*: int
+    name*: string
+    f*: File
+var sourceFileStack: seq[SourceFileStackEntry] = @[]
+
+proc registerSourceFile*(f: File, name: string): void =
+  sourceFileStack.add(SourceFileStackEntry(line: 0, col: 0, name: name, f: f))
+
+proc readStr*(source: var SourceFileStackEntry): Option[string] =
+  let meta = getMeta()
+  var res: string = ""
+  try:
+    while true:
+      let ch = source.f.readChar()
+      if ch == meta: return some(res)
+      case ch:
+        of '\n':
+          source.line += 1
+          source.col = 0
+        else:
+          source.col += 1
+      res.add(ch)
+  except:
+    if res.len() > 0: return some(res)
+    else: return none(string)
+
+proc readStrFromSourceFile*(): Option[string] =
+  return sourceFileStack[^1].readStr()
+    
+proc readCharFromSourceFile*(): Option[char] =
+  let sf = sourceFileStack[^1]
+  try:
+    let ch = sf.f.readChar()
+    return some(ch)
+  except:
+    return none(char)
+
+proc readLineFromSourceFile*(): Option[string] =
+  let sf = sourceFileStack[^1]
+  var res: string = ""
+  try:
+    while true:
+      let ch = sf.f.readChar()
+      res.add(ch)
+      if ch == '\n':
+        return some(res)
+  except:
+    if res.len() > 0: return some(res)
+    else: return none(string)
+
+proc getCurrentSourceFile(): SourceFileStackEntry =
+  return sourceFileStack[^1]
+    
+proc getCurrentLineCol*(): tuple[line: int, col: int] =
+  return (line: sourceFileStack[^1].line, col: sourceFileStack[^1].col)
+
+proc getCurrentFileName*(): string =
+  return sourceFileStack[^1].name
+
+proc registerError(reason: string): void =
+  let fn = getCurrentFileName()
+  let lc = getCurrentLineCol()
+  errorList.add(FMError(line: lc.line, col: lc.col, fileName: fn, reason: reason))
+
+# NOTE: this is called by src/flowmark.nim, not here.
+proc reportAllError*(): void =
+  for x in errorList:
+    stderr.write(x.fileName & "(" & $(x.line+1) & "," & $(x.col+1) & "): " & x.reason & "\n")
+    stderr.flushFile()
+  errorList = @[]
 
 proc defineForm(name: string, body: string): void =
   forms[name] = Macro(fp: 0, pieceList: @[MacroPiece(ptype: TEXT, content: body)])
@@ -167,6 +248,24 @@ proc readStrTillMeta*(fromFile: File = stdin): string =
   let s = readStr(fromFile)
   return if s.isNone(): "" else: s.get()
 
+proc updateCurrentLine(x: int): void =
+  if active.len() > 1: return
+  getCurrentSourceFile().line = x
+proc updateCurrentCol(x: int): void =
+  if active.len() > 1: return
+  getCurrentSourceFile().col = x
+proc updateCurrentLineColByChar(x: char): void =
+  if active.len() > 1: return
+  let f = getCurrentSourceFile()
+  if x == '\n' or x == '\v':
+    f.line += 1
+    f.col = 0
+  else:
+    f.col += 1
+proc updateCurrentLineCol(st: int, e: int): void =
+  if active.len() > 1: return
+  for i in st..<e: active[0].buf[i].updateCurrentLineColByChar()
+
 # This calls the function, like the "apply" in the eval/apply loop.
 proc performOperation(): ExecVerdict =
   let fncall = fncalls.pop()
@@ -183,46 +282,72 @@ proc performOperation(): ExecVerdict =
     of "debug.list_names":
       discard "fix this"
       res = ""
+    of "set.meta":
+      if args.len() >= 2:
+        changeMeta(args[1][0])
+    of "reset.meta":
+      changeMeta(';')  
 
     # Form bookkeeping & macro-related
     of "def":
-      # echo "def ", args[1], " ", args[2]
       defineForm(args[1], args[2])
       res = ""
     of "def.free":
       let sequence = args.safeIndex(1, "")
       if sequence.len() <= 0:
-        discard nil
-        # TODO: report error here.
+        registerError("Cannot define empty sequence as freeform macro")
       else:
         let content = args.safeIndex(2, "")
         defineFreeformMacro(sequence, content)
       res = ""
     of "init.macro":
-      makeMacro(args[1], args)
+      if args.len() < 2 or args[1].len() <= 0:
+        registerError("Form name required for \\init.macro")
+      elif not forms.hasKey(args[1]):
+        registerError("Form " & args[1] & " is not yet defined at this point")
+      else:
+        makeMacro(args[1], args)
       res = ""
     of "copy":
-      forms[args[2]] = forms[args[1]]
-      res = ""
+      if args[2].len() <= 0:
+        registerError("Form name required for \\copy")
+      elif not forms.hasKey(args[1]):
+        registerError("Form " & args[1] & " is not yet defined at this point")
+      else:
+        forms[args[2]] = forms[args[1]]
+        res = ""
     of "move":
-      forms[args[2]] = forms[args[1]]
-      forms.del(args[1])
-      res = ""
+      if args[2].len() <= 0:
+        registerError("Form name required for \\move")
+      elif not forms.hasKey(args[1]):
+        registerError("Form " & args[1] & " is not yet defined at this point")
+      else:
+        forms[args[2]] = forms[args[1]]
+        forms.del(args[1])
+        res = ""
     of "del":
-      forms.del(args[1])
-      res = ""
+      if args.len() < 2 or args[1].len() <= 0:
+        registerError("Form name required for \\del")
+      else:
+        forms.del(args[1])
+        res = ""
     of "del.all":
       forms.clear()
       res = ""
     of "del.free":
-      freeformMacros.del(args[1])
-      res = ""
+      if args.len() < 2 or args[1].len() <= 0:
+        registerError("Form name required for \\del.free")
+      elif not freeformMacros.hasKey(args[1]):
+        registerError("Freeform " & args[1] & " is not yet defined at this point")
+      else:
+        freeformMacros.del(args[1])
+        res = ""
 
     # Full calling & partial calling
     of "call":
       let callres = callForm(args[1], args)
-      if callres.isNone:
-        # TODO: register name error here.
+      if callres.isNone():
+        registerError("Cannot find form named " & args[1])
         res = ""
       else:
         res = callres.get()
@@ -230,12 +355,28 @@ proc performOperation(): ExecVerdict =
     # Forward-reading primitives
     of "next.char":
       let ch = readCharFromSourceFile()
+      let f = getCurrentSourceFile()
       var chsh = ""
-      if not ch.isNone(): chsh.add(ch.get)
-      res = chsh
+      if not ch.isNone():
+        let c = ch.get
+        chsh.add(c)
+        if c == '\n':
+          f.line += 1
+          f.col = 0
+        else:
+          f.col += 1
+        res = chsh
+      else:
+        res = ""
     of "next.string":
       let s = readLineFromSourceFile()
-      res = if s.isNone(): "" else: s.get()
+      if not s.isNone():
+        res = s.get()
+        let f = getCurrentSourceFile()
+        f.line += 1
+        f.col = 0
+      else:
+        res = ""
 
     # Algorithmic primitives
     of "add.int":
@@ -279,6 +420,12 @@ proc performOperation(): ExecVerdict =
       res = if args[1].strip().parseInt() == args[2].strip().parseInt(): args[3] else: args[4]
     of "ifeq.float":
       res = if args[1].strip().parseInt() == args[2].strip().parseInt(): args[3] else: args[4]
+    of "ifne":
+      res = if args[1] != args[2]: args[3] else: args[4]
+    of "ifne.int":
+      res = if args[1].strip().parseInt() != args[2].strip().parseInt(): args[3] else: args[4]
+    of "ifne.float":
+      res = if args[1].strip().parseInt() != args[2].strip().parseInt(): args[3] else: args[4]
 
     else:
       res = ""
@@ -296,6 +443,14 @@ proc initEnv*(): void =
   errorList = @[]
   shouldReplContinue = true
 
+# NOTE:
+# The source file reading process is done in src/flowmark.nim; this only processes one
+# command at a time. The loop in src/flowmark.nim does not advance file's line&col num;
+# for better error reporting we do that here.
+# Since all "extra" appendage to the left-end of the active string during the evaluation
+# process is done by pushing the appendage to the active string stack, the very bottom
+# of the active string stack would be always the *actual* source file string, so we
+# only advance current file's line&col when we consume characters from that string.
 proc process*(source: string = idle): bool =
   # echo "form=", forms
   active.pushNew(source)
@@ -318,13 +473,17 @@ proc process*(source: string = idle): bool =
         if active[^1].buf[i_1] == '(': cnt += 1
         elif active[^1].buf[i_1] == ')': cnt -= 1
         i_1 += 1
+      updateCurrentLineCol(i, i_1)
       if cnt >= 0:
         neutral = ""
+        registerError("Right parenthesis required")
+        echo active
         if active.len() > 1:
           discard active.pop()
           activeLen = active.currentPieceLen()
           i = active.currentPieceI()
         else:
+          discard active.pop()
           break
         continue
       else:
@@ -334,6 +493,7 @@ proc process*(source: string = idle): bool =
         continue
     elif active[^1].buf[i] == '\\':
       i += 1
+      updateCurrentLineColByChar('\\')
       if i >= activeLen:
         neutral = ""
         if active.len() > 1:
@@ -348,6 +508,7 @@ proc process*(source: string = idle): bool =
           if active[^1].buf[i_1] == '(': cnt += 1
           elif active[^1].buf[i_1] == ')': cnt -= 1
           i_1 += 1
+        updateCurrentLineCol(i, i_1)
         if cnt >= 0:
           neutral = ""
           if active.len() > 1:
@@ -362,6 +523,7 @@ proc process*(source: string = idle): bool =
       elif active[^1].buf[i] in " \t\n\r\v":
         var i_1 = i
         while i_1 < activeLen and (active[^1].buf[i_1] in " \t\n\r\v"): i_1 += 1
+        updateCurrentLineCol(i, i_1)
         i = i_1
         active.setCurrentPieceI(i)
         continue
@@ -370,7 +532,10 @@ proc process*(source: string = idle): bool =
         if active[^1].buf[i] == '\\':
           fntype = NEUTRAL
           i += 1
-        if active[^1].buf[i] in "#~`$%^&": continue
+          updateCurrentLineColByChar('\\')
+        if active[^1].buf[i] in "#~`$%^&":
+          active.setCurrentPieceI(i)
+          continue
         var i_1 = i
         while i_1 < activeLen and not (active[^1].buf[i_1] in " \t\n\r\v()"): i_1 += 1
         if i_1 == i+1 and i_1 >= activeLen:
@@ -382,6 +547,7 @@ proc process*(source: string = idle): bool =
           continue
         # NOTE: fnName here can't be empty since that case is already handled above.
         let fnName = active[^1].buf[i..<i_1]
+        updateCurrentLineCol(i, i_1)
         fncalls.add(Fncall(fntype: fntype, mark: @[neutral.len()]))
         neutral &= fnName
         fncalls[^1].mark.add(neutral.len())
@@ -402,11 +568,14 @@ proc process*(source: string = idle): bool =
             continue
         else:
           i = i_1+1
+          updateCurrentLineColByChar('(')
           active.setCurrentPieceI(i)
           continue
     elif active[^1].buf[i] == '@':
+      updateCurrentLineColByChar('@')
       if i+1 < activeLen:
         neutral.add(active[^1].buf[i+1])
+        updateCurrentLineColByChar(active[^1].buf[i+1])
         i += 2
       else:
         neutral.add(active[^1].buf[i])
@@ -414,29 +583,40 @@ proc process*(source: string = idle): bool =
       active.setCurrentPieceI(i)
       continue
     elif active[^1].buf[i] == ',':
-      if fncalls.len() < 0:
+      if fncalls.len() <= 0:
         neutral.add(',')
       else:
         fncalls[^1].mark.add(neutral.len())
       i += 1
       active.setCurrentPieceI(i)
+      updateCurrentLineColByChar(',')
       continue
     elif active[^1].buf[i] == ')':
-      let latestFncall = fncalls[^1]
-      latestFncall.mark.add(neutral.len())
-      var fnres = performOperation()
-      if not fnres.shouldContinue: break
-      if latestFncall.fntype == ACTIVE:
-        active[^1].buf = fnres.res & active[^1].buf[i+1..<activeLen]
-        i = 0
-        active.setCurrentPieceI(i)
-        continue
-      elif latestFncall.fntype == NEUTRAL:
-        neutral &= fnres.res
+      if fncalls.len() > 0:
+        let latestFncall = fncalls[^1]
+        latestFncall.mark.add(neutral.len())
+        var fnres = performOperation()
+        if not fnres.shouldContinue: break
+        if latestFncall.fntype == ACTIVE:
+          active[^1].buf = fnres.res & active[^1].buf[i+1..<activeLen]
+          i = 0
+          active.setCurrentPieceI(i)
+          continue
+        elif latestFncall.fntype == NEUTRAL:
+          neutral &= fnres.res
+          i += 1
+          active.setCurrentPieceI(i)
+          continue
+        updateCurrentLineColByChar(')')
+      else:
+        neutral.add(active[^1].buf[i])
+        updateCurrentLineColByChar(')')
         i += 1
         active.setCurrentPieceI(i)
-        continue
     elif active[^1].buf[i] in "\n\r\v":
+      if active[^1].buf[i] in "\n\v":
+        updateCurrentLine(getCurrentSourceFile().line+1)
+        updateCurrentCol(0)
       i += 1
       active.setCurrentPieceI(i)
       continue
@@ -445,6 +625,7 @@ proc process*(source: string = idle): bool =
       for ffm in freeformMacros.keys:
         if i+ffm.len() <= activeLen:
           if active[^1].buf[i..<i+ffm.len()] == ffm:
+            updateCurrentLineCol(i, i+ffm.len())
             i += ffm.len()
             active.setCurrentPieceI(i)
             active.pushNew(freeformMacros[ffm])
@@ -454,6 +635,7 @@ proc process*(source: string = idle): bool =
             break
       if ffmFound: continue
       neutral.add(active[^1].buf[i])
+      updateCurrentLineColByChar(active[^1].buf[i])
       i += 1
       active.setCurrentPieceI(i)
       continue

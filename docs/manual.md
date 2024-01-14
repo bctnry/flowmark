@@ -208,6 +208,8 @@ This would be the equivalent to:
 
 + `\halt`: Halt any further execution.
 + `\debug.list_names`*:
++ `\set.meta(STR)`: Returns empty string. Set the meta character to the first character of string `STR`.
++ `\reset.meta`: Returns empty string. Set the meta character to semicolon `;`, the default used by Flowmark.
 
 ### Form bookkeeping & macro-related primitives
 
@@ -267,4 +269,7 @@ Flowmark has the following partial calling primitives; all of them returns empty
 + `\ifeq(STR1,STR2,CLAUSE1,CLAUSE2)`:
 + `\ifeq.int(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
 + `\ifeq.float(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
++ `\ifne(STR1,STR2,CLAUSE1,CLAUSE2)`:
++ `\ifne.int(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
++ `\ifne.float(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
 
