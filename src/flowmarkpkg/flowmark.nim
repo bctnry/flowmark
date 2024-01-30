@@ -3,6 +3,7 @@ import std/syncio
 import std/options
 import std/strutils
 import std/sequtils
+import std/strformat
 import activebuffer
 import read
 
@@ -354,7 +355,26 @@ proc performOperation(): ExecVerdict =
       else:
         forms.del(args[1])
         res = ""
+    of "del.all_keywords":
+      keywords.clear()
+      res = ""
+    of "del.all_free":
+      freeformMacros.clear()
+      res = ""
     of "del.all":
+      keywords.clear()
+      forms.clear()
+      freeformMacros.clear()
+      res = ""
+    of "del.keyword":
+      if args.len() < 2 or args[1].len() <= 0:
+        registerError("Keyword name required for \\del.keyword")
+      elif not keywords.hasKey(args[1]):
+        registerError(&"Keyword {args[1]} is not yet defined at this point")
+      else:
+        keywords.del(args[1])
+        res = ""
+    of "del.all_macros":
       forms.clear()
       res = ""
     of "del.free":

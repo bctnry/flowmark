@@ -274,10 +274,10 @@ Keywords are intended to be a mechanism to extend the language itself
 + `\del(NAME)`: Returns empty string. Remove the form defined under the name `NAME`. If `NAME` is not previously defined, an error is reported. If =NAME= is an empty string, this has no effect.
 + `\del.free(PAT)`: Returns empty string. Remove a freeform macro with the pattern `PAT`. If `PAT` is empty or not previously defined, an error is reported.
 + `\del.keyword(NAME)` *: Returns empty string. Delete a custom-defined keyword.
-+ `\del.all` *: Returns empty string. Remove all definitions, including freeform macros, normal macros and keywords.
-+ `\del.all_macros`*:
-+ `\del.all_keywords`*:
-+ `\del.all_free`*:
++ `\del.all`: Returns empty string. Remove all definitions, including freeform macros, normal macros and keywords.
++ `\del.all_macros`: Returns empty string. Remove all normal macros.
++ `\del.all_keywords`: Returns empty string. Remove all custom-defined keywords.
++ `\del.all_free`: Returns empty string. Remove all freeform macros.
 
 ### Full calling & partial calling
 
