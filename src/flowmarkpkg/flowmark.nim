@@ -72,6 +72,7 @@ var forms: Table[string,Macro]
 var freeformMacros: Table[string,string]
 var errorList: seq[FMError]
 var shouldReplContinue: bool = true
+var keywords: Table[string,Macro]
 
 proc `$`(x: ActiveBufferPiece): string =
   return "ABP(" & $x.i & "," & x.buf & ")"
@@ -161,17 +162,20 @@ proc defineFreeformMacro(sequence: string, body: string): void =
 proc safeIndex[T](x: seq[T], i: int, def: T): T =
   if i >= x.len(): return def
   else: return x[i]
-  
-proc callForm(name: string, call: seq[string]): Option[string] =
-  if not forms.hasKey(name): return none(string)
+
+proc expandMacro(form: seq[MacroPiece], argList: seq[string]): string =
   var res: seq[string] = @[]
-  for p in forms[name].pieceList:
+  for p in form:
     case p.ptype:
       of TEXT:
         res.add(p.content)
       of GAP:
-        res.add(call.safeIndex(p.gapnum+1, ""))
-  return some(res.join(""))
+        res.add(argList.safeIndex(p.gapnum-1, ""))
+  return res.join("")
+  
+proc callForm(name: string, call: seq[string]): Option[string] =
+  if not forms.hasKey(name): return none(string)
+  return some(forms[name].pieceList.expandMacro(call[2..<call.len()]))
   
 proc getargs(x: seq[int]): seq[string] =
   var res: seq[string] = @[]
@@ -200,14 +204,12 @@ proc andBit(x: string, y: string): bool =
   discard "fix this"
   var i = max(x.len(), y.len()) - 1
   
-
-proc makeMacro(name: string, call: seq[string]): void =
-  if not forms.hasKey(name): return
+proc initMacro(form: seq[MacroPiece], argList: seq[string]): seq[MacroPiece] =
   var mappingTable: Table[string,int] = initTable[string,int]()
-  for i in 2..<call.len():
-    mappingTable[call[i]] = i-1
+  for i in 0..<argList.len():
+    mappingTable[argList[i]] = i+1
   var newPieceList: seq[MacroPiece] = @[]
-  for p in forms[name].pieceList:
+  for p in form:
     if p.ptype == GAP:
       newPieceList.add(p)
       continue
@@ -242,7 +244,20 @@ proc makeMacro(name: string, call: seq[string]): void =
     if shouldContinueImmediately: continue
     if last_i < pContentLen:
       newPieceList.add(MacroPiece(ptype: TEXT, content: p.content[last_i..<pContentLen]))
+  return newPieceList
+  
+  
+proc makeMacro(name: string, call: seq[string]): void =
+  if not forms.hasKey(name): return
+  let argList = call[2..<call.len()]
+  let newPieceList = forms[name].pieceList.initMacro(argList)
   forms[name].pieceList = newPieceList
+
+proc defineKeyword(name: string, call: seq[string]): void =
+  let body = call[^1]
+  let initForm = @[MacroPiece(ptype: TEXT, content: body)]
+  keywords[name] = Macro(fp: 0, pieceList: initform)
+  keywords[name].pieceList = initForm.initMacro(call[1..<call.len()-1])
   
 proc readStrTillMeta*(fromFile: File = stdin): string =
   let s = readStr(fromFile)
@@ -299,6 +314,14 @@ proc performOperation(): ExecVerdict =
       else:
         let content = args.safeIndex(2, "")
         defineFreeformMacro(sequence, content)
+      res = ""
+    of "def.macro":
+      defineForm(args[1], args[^1])
+      let makeMacroArgList = args[0..<args.len()-1]
+      makeMacro(args[1], makeMacroArgList)
+      res = ""
+    of "def.keyword":
+      defineKeyword(args[1], args)
       res = ""
     of "init.macro":
       if args.len() < 2 or args[1].len() <= 0:
@@ -428,7 +451,15 @@ proc performOperation(): ExecVerdict =
       res = if args[1].strip().parseInt() != args[2].strip().parseInt(): args[3] else: args[4]
 
     else:
-      res = ""
+      # check for custom keyword.
+      var keywordFound = false
+      for kw in keywords.keys:
+        if args[0] == kw:
+          res = keywords[kw].pieceList.expandMacro(args[1..<args.len()])
+          keywordFound = true
+          break
+      if not keywordFound:
+        res = ""
   return ExecVerdict(shouldContinue: shouldContinue, res: res)
 
 

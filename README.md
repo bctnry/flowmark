@@ -13,13 +13,12 @@ nimble build
 ## Examples
 
 ```
-\def(Factorial,(\
+\def.macro(Factorial,(\
   \ifeq.int(<1>,0,\
     0,\
     (\ifeq.int(<1>,1,1,(\mult.int(<1>,\call(Factorial,\sub.int(<1>,1))))))\
   )\
 ));
-\init.macro(Factorial);
 \print(\call(Factorial,5)(
 ));
 ```
@@ -27,7 +26,7 @@ nimble build
 ```
 \def.free($,(\print((
 ))));
-\def(Hanoi,\
+\def.macro(Hanoi,from,to,via,\
   (\ifeq.int(<1>,0,,\
     (\ifeq.int(<1>,1,\
       (\print(Move from <from> to <to>)$),\
@@ -37,11 +36,10 @@ nimble build
     ))\
   ))\
 );
-\init.macro(Hanoi,,from,to,via);
 \print(\call(Hanoi,3,A,C,B));
 ```
 
 ## Editor support
 
-An Emacs major mode can be found [here](https://github.com/bctnry/flowmark-mode.el)
+An Emacs major mode can be found [here](https://github.com/bctnry/flowmark-mode.el).
 

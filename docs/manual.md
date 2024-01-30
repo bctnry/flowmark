@@ -42,11 +42,11 @@ The following is an example of a solution to the Tower of Hanoi problem.
 
 ### Difference between Flowmark and TRAC T64
 
-+ Hashes =#= that starts a function call is replaced with slashes =\=.
-+ Function call syntax is slightly different (=\func(arg1,arg2,...)= vs. =#(func,arg1,arg2,...)=).
-+ Default meta character in Flowmark is semicolon =;= instead of apostrophe ='=.
-+ In T64 spaces are preserved, forcing many TRAC source code to be left-aligned. In Flowmark, any consequential whitespaces after a slash =\= is ignored altogether; this allows one to indent their code; if whitespaces are needed, one could always use the protective parentheses.
-+ The at-sign =@= is used as some kind of "global escape character"; it is guaranteed that the next character after an at-sign =@= (except when it's in protective parentheses) is retained regardless of any syntax rules and previously defined macros.
++ Hashes `#` that starts a function call is replaced with slashes `\\`.
++ Function call syntax is slightly different (`\func(arg1,arg2,...)` vs. `#(func,arg1,arg2,...)`).
++ Default meta character in Flowmark is semicolon `;` instead of apostrophe `'`.
++ In T64 spaces are preserved, forcing many TRAC source code to be left-aligned. In Flowmark, any consequential whitespaces after a slash `\` is ignored altogether; this allows one to indent their code; if whitespaces are needed, one could always use the protective parentheses.
++ The at-sign `@` is used as some kind of "global escape character"; it is guaranteed that the next character after an at-sign `@` (except when it's in protective parentheses) is retained regardless of any syntax rules and previously defined macros.
 + The way to define text macros is slightly different; in Flowmark it's like a combination of T64 and T84. (explained later)
 + It's possible to extend the processing algorithm to a limited content by using something called a /freeform macro/. (explained later)
 
@@ -181,7 +181,7 @@ The name for a freeform macro can only contain the following characters:
 + An ampersand `&`;
 + An underscore `_`;
 
-Although freeform macros do not have the ability to take an argument list, it can still handle the upcoming text by expanding into forward-reading primitives. Consider this example for defining syntax sugar for superscripts, subscripts and math mode in a possible typesetting library; one would define the freeform macro =^=, =_= and =$$= as follows:
+Although freeform macros do not have the ability to take an argument list, it can still handle the upcoming text by expanding into forward-reading primitives. Consider this example for defining syntax sugar for superscripts, subscripts and math mode in a possible typesetting library; one would define the freeform macro `^`, `_` and `$$` as follows:
 
 ```
   \def.free($$,(\toggle(mode.math)));
@@ -200,6 +200,57 @@ This would be the equivalent to:
   \toggle(mode.math)A\format.subscript(i) + B\format.subscript(ij) <= C\format.subscript(k)\toggle(mode.math)
 ```
 
+## I/O in Flowmark
+
+### Default Print and Default Out
+
+Since Flowmark was originally intended to be the foundation language of a typesetting toolkit like TeX, instead of Standard Output/Standard Error like in POSIX-compliant systems, in Flowmark there's Default Print/Default Out; the difference is that Standard Output/Standard Error is not related to the output medium, but Default Print/Default Out is *only* about the media itself: Default Print is strictly console-only, and Default Out is intended to be the output where the programs write their generated page description code to. The output to Default Out would be lost unless an actual output (e.g. console or file) is specified beforehand.
+
+## Non-text literals in Flowmark
+
+Flowmark is largely text-oriented, but there are times when numeric or boolean calculations are needed.
+
+There are four kinds (well technically three) of non-text literals in Flowmark:
+
++ Integers
++ Floating-point numbers (i.e. the ones with decimals)
++ Bit vector
++ Boolean
+  + In Flowmark booleans are actually bit vector of length 1.
+  
+All four of them are (kind of) numeric. Primitives that requires numeric arguments would remove the surrounding whitespaces of the texts passed as arguments and tries to interpret it as corresponding numeric values using certain
+
+### Valid numeric & boolean literals
+
++ Bit vectors requires the argument text to contain only `0` and `1`.
++ Boolean requires the argument text, after removing surrounding whitespaces, must be `0` or `1`.
+
+### Coercion
+
++ Integers, 
+
+## Keywords
+
+You can use `\def.keyword(NAME,ARG1,...,BODY)` to define new keywords. The semantics is roughly the same as defining a macro using `\def.macro` except:
+
++ Keywords are stored in a separate namespace than macros; you can have a keyword and a macro with the same name.
++ You can't `recite` a keyword.
+
+Keywords are intended to have a different syntax for calling; for example, a macro for calculating factorial would be invoked like this:
+
+```
+\call(Factorial,5);
+```
+
+But if `Factorial` is defined as a keyword, one must invoke it like this:
+
+```
+\Factorial(5);
+```
+
+Keywords are intended to be a mechanism to extend the language itself
+
+
 ## Primitives
 
 (names tagged with * is still work in progress)
@@ -215,12 +266,18 @@ This would be the equivalent to:
 
 + `\def(NAME,BODY)`: Returns empty string. Stores `BODY` under the name `NAME`. When `NAME` is an empty string, this has no effect.
 + `\def.free(PAT,BODY)`: Returns empty string. Used to define freeform macros (explained above). `PAT` must not be empty, or else an error is reported.
++ `\def.macro(NAME,ARG1,...,BODY)`: Returns empty string. A combination of `\def` and `\init.macro`. Equivalent to `\def(NAME,BODY)\init.macro(NAME,ARG1,...)`.
++ `\def.keyword(NAME,ARG1,...,BODY)`: Returns empty string. Used to define a keyword.
 + `\init.macro(NAME,ARG1,...)`: Returns empty string. Used to turn already defined forms into normal macros.
 + `\copy(NAME1,NAME2)`: Returns empty string. Copies the form originally defined under the name `NAME1` to the new name `NAME2`. The newly-defind form has its own form pointer. If `NAME1` is not previously defined, an error is reported. If any of the two names are empty string, this has no effect.
 + `\move(NAME1,NAME2)`: Returns empty string. Moves the form from the name `NAME1` to the new name `NAME2`. If `NAME1` is not previously defined, an error is reported. If any of the two names are empty string, this has no effect.
 + `\del(NAME)`: Returns empty string. Remove the form defined under the name `NAME`. If `NAME` is not previously defined, an error is reported. If =NAME= is an empty string, this has no effect.
 + `\del.free(PAT)`: Returns empty string. Remove a freeform macro with the pattern `PAT`. If `PAT` is empty or not previously defined, an error is reported.
-+ `\del.all`: Returns empty string. Remove all definitions.
++ `\del.keyword(NAME)` *: Returns empty string. Delete a custom-defined keyword.
++ `\del.all` *: Returns empty string. Remove all definitions, including freeform macros, normal macros and keywords.
++ `\del.all_macros`*:
++ `\del.all_keywords`*:
++ `\del.all_free`*:
 
 ### Full calling & partial calling
 
@@ -252,9 +309,10 @@ Flowmark has the following partial calling primitives; all of them returns empty
 + `\or(ARG1,...)` * :
 + `\not(ARG1,...)` * :
 + `\is.empty(ARG1)` * :
-+ `\is.int(ARG1)` * :
++ `\is.int(ARG1)` * : Returns a boolean value indicating if `ARG` is a valid integer, `1` means it **is** valid, `0` means it is not.
 + `\is.float(ARG1)` * :
 + `\is.bit(ARG1)` * :
++ `\to.bit(ARG1,WIDTH)` * : Returns the conversion result of []. `WIDTH` can be empty; when `WIDTH` is empty, 
 
 ### I/O primitives
 
@@ -263,6 +321,9 @@ Flowmark has the following partial calling primitives; all of them returns empty
 + `\print(X)`:
 + `\print.form(NAME)`:
 + `\print.free(PAT)`:
++ `\out(X)`*: Returns empty string. Put `X` to the current out-port.
++ `\error(X)`*: Returns empty string. Put `X` to the current error-port.
++ `\warn(X)`*: Returns empty string. Put `X` to the current warning-port.
 
 ### Branching
 
