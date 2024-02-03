@@ -53,12 +53,22 @@ The following is an example of a solution to the Tower of Hanoi problem.
 ### How to use the CLI
 
 ```
-flowmark       -    start repl.
-flowmark [file]    -    use [file] as input.
-flowmark -v    -    show version.
-flowmark -h    -    show help.
-flowmark -i [file] -    use [file] as input (repl mode.)
+Usage: flowmark [options] [file]
+flowmark         -    start repl.
+flowmark [file]  -    use [file] as input (but don't start repl)
+
+Options:
+    --version, -v                 -    show version.
+    --help, -h                    -    show help.
+    --interactive, -i             -    start repl after the source file is processed.
+    --out-target, -o [files]      -    specify the out-port target file
+    --neutral-target, -e [file]   -    specify the neutral string target file
 ```
+
+A few more specifications on the options:
+
++ The "long name" for the options can be replaced with the short name and vice versa, e.g. using `-o` instead of `--out-target`)
++ The `[files]` the option `-o` takes is a list of file names separated with comma `,`.
 
 ## The processing algorithm
 
@@ -115,7 +125,7 @@ The actual algorithm goes as follows:
    * Or, if the beginning of the string has a prefix that has a previously defined freeform macro, push the corresponding string onto the active string stack, and restart step 3. (_{This rule is put here since one cannot simply append the corresponding string to the left-end of the activ string because forward-reading (explaind later) primitives directly act upon the active string /previous to the expansion of the freeform macro/.})
    * Or, if none of the rules mentioned above applies, remove the first character from the active string and add it to the neutral string. Restart step 3.
 
-Note that this description of algorithm does not mention "idling procedure" like TRAC; this is because Flowmark is 
+Note that this description of algorithm does not mention "idling procedure" like TRAC; while it's possible in Flowmark to use an idling procedure like TRAC, this implementation does not use one and its REPL is implemented separately instead.
 
 ## Defining text macros in Flowmark
 
@@ -200,11 +210,15 @@ This would be the equivalent to:
   \toggle(mode.math)A\format.subscript(i) + B\format.subscript(ij) <= C\format.subscript(k)\toggle(mode.math)
 ```
 
-## I/O in Flowmark
+## Document generation in Flowmark
 
-### Default Print and Default Out
+Since Flowmark was originally intended to be the foundation language of a typesetting toolkit like TeX, instead of Standard Output/Standard Error (which are separate but both are normally redirected to the console) like in POSIX-compliant systems, in Flowmark there's Default Print/Default Neutral/Default Out:
 
-Since Flowmark was originally intended to be the foundation language of a typesetting toolkit like TeX, instead of Standard Output/Standard Error like in POSIX-compliant systems, in Flowmark there's Default Print/Default Out; the difference is that Standard Output/Standard Error is not related to the output medium, but Default Print/Default Out is *only* about the media itself: Default Print is strictly console-only, and Default Out is intended to be the output where the programs write their generated page description code to. The output to Default Out would be lost unless an actual output (e.g. console or file) is specified beforehand.
++ Default Neutral simply means the neutral string buffer after the execution of the last command group. It's intended for text macro expansion, e.g. having a Flowmark source file expand into an HTML or Postscript file.
++ Default Print always mean the console. This is where you write your output to if you're writing an interactive program.
++ Default Out refers the current `out` port used by the `\out` primitive ("port" here is a term to refer to a system internal buffer you write to). `out` ports are intended for *generating* files (instead of *expanding* like in Default Neutral).
+
+The content of Default Neutral and Default Out is lost if no target is specified (e.g. by using `-e` and `-o` command line options). Ten output port (ID 0~9) is created upon the startup of Flowmark so one does not need to create new ones most of the time.
 
 ## Non-text literals in Flowmark
 
@@ -318,12 +332,15 @@ Flowmark has the following partial calling primitives; all of them returns empty
 
 + `\read.str`:
 + `\read.piece` * :
-+ `\print(X)`:
++ `\print(X)`: Returns empty string. Put `X` to the current print port.
 + `\print.form(NAME)`:
 + `\print.free(PAT)`:
-+ `\out(X)`*: Returns empty string. Put `X` to the current out-port.
-+ `\error(X)`*: Returns empty string. Put `X` to the current error-port.
-+ `\warn(X)`*: Returns empty string. Put `X` to the current warning-port.
++ `\out(X1,X2,...)`: Returns empty string. Output `X1`, `X2`, ... to the current default output port.
++ `\set.out(ID)`: Returns empty string. Set current output port.
++ `\reset.out`: Returns empty string. Resets the current output port to port 0. (Equivalent to `\set.out(0)`)
++ `\new.out`: Returns a valid integer string. Creates a new output port. The returned integer string would be the ID of the new output port.
++ `\error(X)`: Returns empty string. Put `X` to the current error port.
++ `\warn(X)`: Returns empty string. Put `X` to the current warning port.
 
 ### Branching
 

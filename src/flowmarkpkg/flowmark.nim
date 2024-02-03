@@ -6,7 +6,7 @@ import std/sequtils
 import std/strformat
 import activebuffer
 import read
-
+import ioport
 
 type
   FncallType = enum
@@ -79,6 +79,8 @@ proc `$`(x: ActiveBufferPiece): string =
   return "ABP(" & $x.i & "," & x.buf & ")"
 proc `$`(x: ActiveBuffer): string =
   return x.mapIt($it).join(",")
+
+proc getNeutral*(): string = neutral
 
 type
   SourceFileStackEntry = ref object
@@ -394,6 +396,14 @@ proc performOperation(): ExecVerdict =
         res = ""
       else:
         res = callres.get()
+    of "recite.reset":
+      if args.len() < 2 or args[1].len() <= 0:
+        registerError("Form name required for \\recite.reset")
+      elif not forms.hasKey(args[1]):
+        registerError(&"Form " & args[1] & " is not yet defined at this point")
+      else:
+        forms[args[1]].fp = 0
+        res = ""
 
     # Forward-reading primitives
     of "next.char":
@@ -452,9 +462,28 @@ proc performOperation(): ExecVerdict =
       stdout.flushFile()
       res = ""
     of "print.free":
-      echo "args=", args
       stdout.write(freeformMacros[args[1]])
       stdout.flushFile()
+    of "out":
+      for i in 1..<args.len():
+        OUT.writeToCurrentOutputPort(args[i])
+      res = ""
+    of "set.out":
+      OUT.setCurrentOutputPort(args[1].strip().parseInt)
+    of "reset.out":
+      OUT.setCurrentOutputPort(0)
+      res = ""
+    of "new.out":
+      let r = OUT.newOutputPort()
+      res = $r
+    of "warn":
+      for i in 1..<args.len():
+        WARN.writeToCurrentOutputPort(args[i])
+      res = ""
+    of "error":
+      for i in 1..<args.len():
+        ERROR.writeToCurrentOutputPort(args[i])
+      res = ""
 
     # Branching
     of "ifeq":

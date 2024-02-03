@@ -3,39 +3,62 @@ import std/options
 import std/cmdline
 import flowmarkpkg/flowmark
 import flowmarkpkg/read
+import cmdargparse
+import std/tables
+import std/strutils
+import flowmarkpkg/ioport
 
-# Usage:
-# flowmark       -    start repl.
-# flowmark [file]    -    use [file] as input.
-# flowmark -v    -    show version.
-# flowmark -h    -    show help.
-# flowmark -i [file] -    use [file] as input (repl mode.)
+let helpStr = """
+Usage: flowmark [options] [file]
+flowmark         -    start repl.
+flowmark [file]  -    use [file] as input (but don't start repl)
+
+Options:
+    -v          -    show version.
+    -h          -    show help.
+    -i          -    start repl after the source file is processed.
+    -o [files]  -    specify the out-port target file
+    -e [file]   -    specify the neutral string target file
+"""
+
 when isMainModule:
+  var lastNeutral: string = ""
   var prompt = "% "
   var file = stdin
   var replMode = false
+  var args: seq[string] = @[]
+  var outTarget: seq[string] = @[]
+  var neutralTarget: string = ""
+  for i in 0..<paramCount():
+    args.add(paramStr(i+1))
   if paramCount() >= 1:
-    if paramStr(1) == "-v":
+    let table = @[
+      (fullKey: "--version", shortKey: "-v", takeValue: false),
+      (fullKey: "--help", shortKey: "-h", takeValue: false),
+      (fullKey: "--interactive", shortKey: "-i", takeValue: false),
+      (fullKey: "--out-target", shortKey: "-o", takeValue: true),
+      (fullKey: "--neutral-target", shortKey: "-e", takeValue: true),
+    ].parseCmdArgs(args)
+    # echo table
+    # quit(0)
+    if table[0].hasKey("--version"):
       echo "0.1.0"
       quit(0)
-    elif paramStr(1) == "-h":
-      echo ("""
-Usage:
-flowmark       -    start repl.
-flowmark [file]    -    use [file] as input.
-flowmark -v    -    show version.
-flowmark -h    -    show help.
-flowmark -i [file] -    use [file] as input (repl mode.)
-""")
+    elif table[0].hasKey("--help"):
+      echo helpStr
       quit(0)
-    elif paramStr(1) == "-i":
-      replMode = true
-      if paramCount() >= 2:
-        file = open(paramStr(2), fmRead)
-        registerSourceFile(file, paramStr(2))
     else:
-      file = open(paramStr(1), fmRead)
-      registerSourceFile(file, paramStr(1))
+      if table[0].hasKey("--interactive"):
+        replMode = true
+      if table[0].hasKey("--out-target"):
+        outTarget = table[0]["--out-target"].strip().split(",")
+      if table[0].hasKey("--neutral-target"):
+        neutralTarget = table[0]["--neutral-target"]
+      if table[1] >= paramCount():
+        registerSourceFile(file, "__stdin__")
+      else:
+        file = open(paramStr(table[1]+1),  fmRead)
+        registerSourceFile(file, paramStr(table[1]+1))
   else:
     registerSourceFile(file, "__stdin__")
     replMode = true
@@ -57,9 +80,22 @@ flowmark -i [file] -    use [file] as input (repl mode.)
       let z = readStr(stdin)
       if z.isNone(): break
       let pres = process(z.get())
+      lastNeutral = getNeutral()
       if not pres: break
       reportAllError()
+  if neutralTarget.len() > 0:
+    let neutralDumpFile = open(neutralTarget, fmWrite)
+    neutralDumpFile.write(getNeutral())
+    neutralDumpFile.flushFile()
+    neutralDumpFile.close()
+  if outTarget.len() > 0:
+    let allOutResult = OUT.allOutputPort().len()
+    let bound = min(allOutResult, outTarget.len())
+    for i in 0..<bound:
+      let s = outTarget[i].strip()
+      if s.len() > 0:
+        let f = open(s, fmWrite)
+        f.write(OUT.allOutputPort()[i])
+        f.flushFile()
+        f.close()
 
-
-
-  
