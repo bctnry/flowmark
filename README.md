@@ -1,6 +1,6 @@
-# Flowmark
+# Weave
 
-Flowmark is a text macro language heavily influenced by TRAC. For an overview of TRAC, see [here](https://sebastian.graphics/blog/trac-language-part-1.html).
+Weave is a text macro language heavily influenced by TRAC. For an overview of TRAC, see [here](https://sebastian.graphics/blog/trac-language-part-1.html).
 
 ## Build
 

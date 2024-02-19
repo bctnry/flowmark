@@ -1,10 +1,10 @@
-# Flowmark User Manual
+# Weave User Manual
 
 (very early draft. subject to change.)
 
 ## Introduction
 
-Flowmark is a macro language influenced by TRAC T64.
+Weave is a macro language influenced by TRAC T64.
 
 ### A taste of Flowmark
 
@@ -40,7 +40,7 @@ The following is an example of a solution to the Tower of Hanoi problem.
 \print(\call(Hanoi,3,A,C,B));
 ```
 
-### Difference between Flowmark and TRAC T64
+### Difference between Weave and TRAC T64
 
 + Hashes `#` that starts a function call is replaced with slashes `\\`.
 + Function call syntax is slightly different (`\func(arg1,arg2,...)` vs. `#(func,arg1,arg2,...)`).
@@ -53,9 +53,9 @@ The following is an example of a solution to the Tower of Hanoi problem.
 ### How to use the CLI
 
 ```
-Usage: flowmark [options] [file]
-flowmark         -    start repl.
-flowmark [file]  -    use [file] as input (but don't start repl)
+Usage: weave [options] [file]
+weave         -    start repl.
+weave [file]  -    use [file] as input (but don't start repl)
 
 Options:
     --version, -v                 -    show version.
@@ -127,18 +127,18 @@ The actual algorithm goes as follows:
 
 Note that this description of algorithm does not mention "idling procedure" like TRAC; while it's possible in Flowmark to use an idling procedure like TRAC, this implementation does not use one and its REPL is implemented separately instead.
 
-## Defining text macros in Flowmark
+## Defining text macros in Weave
 
-In Flowmark there are two kinds of macros, called normal macro and freeform macro respectively. 
+In Weave there are two kinds of macros, called normal macro and freeform macro respectively. 
 
 ### Defining normal macro
 
-Normal macro is the same as plain-old macros in T64. In Flowmark, defining a normal macro is done in two steps:
+Normal macro is the same as plain-old macros in T64. In Weave, defining a normal macro is done in two steps:
 
 + Define a form with `\def`;
 + Turn the defined form with `\init.macro`.
 
-The syntax for normal macro in Flowmark is taken from TRAC T84: gaps are represented by integers surrounded with angle brackets `<>`. For example:
+The syntax for normal macro in Weave is taken from TRAC T84: gaps are represented by integers surrounded with angle brackets `<>`. For example:
 
 ```
 \def(STR,(The quick brown <2> jumps over the lazy <1>.));
@@ -163,18 +163,18 @@ The end result is the same.
 
 ### Pieces
 
-A *piece* (in Flowmark terminology) is a minimal semantically meaningful substring. A piece can be one of the followings:
+A *piece* (in Weave terminology) is a minimal semantically meaningful substring. A piece can be one of the followings:
 
 + A single character that is not a part of any special construct (either by themselves being not a part of any special construct or by escaping with at-sign `@`);
 + A function call, both active and neutral;
 + A whitespace escape sequence;
 + A freeform macro name (explained later);
 
-The concept of piece in Flowmark is quite important; we'll see this very soon.
+The concept of piece in Weave is quite important; we'll see this very soon.
 
 ### Forward-reading
 
-Flowmark supports *forward-reading*, which allows text macros themselves to read the upcoming source text themselves instead of delegating the reading to the processing algorithm; this is similar to reader macro in LISPs, the difference being forward-reading occurs at runtime.
+Weave supports *forward-reading*, which allows text macros themselves to read the upcoming source text themselves instead of delegating the reading to the processing algorithm; this is similar to reader macro in LISPs, the difference being forward-reading occurs at runtime.
 
 ### Freeform macro
 
@@ -210,27 +210,27 @@ This would be the equivalent to:
   \toggle(mode.math)A\format.subscript(i) + B\format.subscript(ij) <= C\format.subscript(k)\toggle(mode.math)
 ```
 
-## Document generation in Flowmark
+## Document generation in Weave
 
-Since Flowmark was originally intended to be the foundation language of a typesetting toolkit like TeX, instead of Standard Output/Standard Error (which are separate but both are normally redirected to the console) like in POSIX-compliant systems, in Flowmark there's Default Print/Default Neutral/Default Out:
+Since Weave was originally intended to be the foundation language of a typesetting toolkit like TeX, instead of Standard Output/Standard Error (which are separate but both are normally redirected to the console) like in POSIX-compliant systems, in Weave there's Default Print/Default Neutral/Default Out:
 
-+ Default Neutral simply means the neutral string buffer after the execution of the last command group. It's intended for text macro expansion, e.g. having a Flowmark source file expand into an HTML or Postscript file.
++ Default Neutral simply means the neutral string buffer after the execution of the last command group. It's intended for text macro expansion, e.g. having a Weave source file expand into an HTML or Postscript file.
 + Default Print always mean the console. This is where you write your output to if you're writing an interactive program.
 + Default Out refers the current `out` port used by the `\out` primitive ("port" here is a term to refer to a system internal buffer you write to). `out` ports are intended for *generating* files (instead of *expanding* like in Default Neutral).
 
-The content of Default Neutral and Default Out is lost if no target is specified (e.g. by using `-e` and `-o` command line options). Ten output port (ID 0~9) is created upon the startup of Flowmark so one does not need to create new ones most of the time.
+The content of Default Neutral and Default Out is lost if no target is specified (e.g. by using `-e` and `-o` command line options). Ten output port (ID 0~9) is created upon the startup of Weave so one does not need to create new ones most of the time.
 
-## Non-text literals in Flowmark
+## Non-text literals in Weave
 
-Flowmark is largely text-oriented, but there are times when numeric or boolean calculations are needed.
+Weave is largely text-oriented, but there are times when numeric or boolean calculations are needed.
 
-There are four kinds (well technically three) of non-text literals in Flowmark:
+There are four kinds (well technically three) of non-text literals in Weave:
 
 + Integers
 + Floating-point numbers (i.e. the ones with decimals)
 + Bit vector
 + Boolean
-  + In Flowmark booleans are actually bit vector of length 1.
+  + In Weave booleans are actually bit vector of length 1.
   
 All four of them are (kind of) numeric. Primitives that requires numeric arguments would remove the surrounding whitespaces of the texts passed as arguments and tries to interpret it as corresponding numeric values using certain
 
@@ -274,7 +274,7 @@ Keywords are intended to be a mechanism to extend the language itself
 + `\halt`: Halt any further execution.
 + `\debug.list_names`*:
 + `\set.meta(STR)`: Returns empty string. Set the meta character to the first character of string `STR`.
-+ `\reset.meta`: Returns empty string. Set the meta character to semicolon `;`, the default used by Flowmark.
++ `\reset.meta`: Returns empty string. Set the meta character to semicolon `;`, the default used by Weave.
 
 ### Form bookkeeping & macro-related primitives
 
@@ -297,7 +297,7 @@ Keywords are intended to be a mechanism to extend the language itself
 
 + `\call(NAME,ARG1,...)`: Returns the result of filling in the form defined under the name `NAME` with its parameters replaced by `ARG1`, etc.. The full calling primitive; equivalent to `cl` in T64.
 
-Flowmark has the following partial calling primitives; all of them returns empty string when the form the call is referring to (i.e. the `NAME` parameter) does not exist:
+Weave has the following partial calling primitives; all of them returns empty string when the form the call is referring to (i.e. the `NAME` parameter) does not exist:
 
 + `\recite.reset(NAME)`*: Returns empty string. Resets the form pointer of the form defined under the name `NAME`. Equivalent to `cr` in T64.
 + `\recite.char(NAME,Z)`*: Returns the single character pointed by the form pointer of the form defined under the name `NAME`. The form pointer of `NAME` is increased by one character. If the form pointer is already at the right-most position, `Z` is returned instead. Equivalent to `cc` in T64.

@@ -1,17 +1,17 @@
 import std/syncio
 import std/options
 import std/cmdline
-import flowmarkpkg/flowmark
-import flowmarkpkg/read
+import weavepkg/weave
+import weavepkg/read
 import cmdargparse
 import std/tables
 import std/strutils
-import flowmarkpkg/ioport
+import weavepkg/ioport
 
 let helpStr = """
-Usage: flowmark [options] [file]
-flowmark         -    start repl.
-flowmark [file]  -    use [file] as input (but don't start repl)
+Usage: weave [options] [file]
+weave         -    start repl.
+weave [file]  -    use [file] as input (but don't start repl)
 
 Options:
     -v          -    show version.
