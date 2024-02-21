@@ -265,6 +265,16 @@ But if `Factorial` is defined as a keyword, one must invoke it like this:
 Keywords are intended to be a mechanism to extend the language itself
 
 
+## Path & import
+
+Weave supports importing other source files (in the form of primitive `\import`); all the result from the imported file would be carried over. Weave reads the base directory from three source for module name resolving:
+
++ Environment variable `WEAVE_IMPORT_PATH`;
++ The parent directory of the input file;
++ Any path added with the `\path` primitive.
+
+One can specify multiple path in the environment variable `WEAVE_IMPORT_PATH` by separating them with semicolon `;`.
+
 ## Primitives
 
 (names tagged with * is still work in progress)
@@ -275,6 +285,8 @@ Keywords are intended to be a mechanism to extend the language itself
 + `\debug.list_names`*:
 + `\set.meta(STR)`: Returns empty string. Set the meta character to the first character of string `STR`.
 + `\reset.meta`: Returns empty string. Set the meta character to semicolon `;`, the default used by Weave.
++ `\import(MODULE)`: Returns empty string. Import the target module `MODULE`. Although it returns empty string, but the effects the imported module has on neutral or any out port will remain.
++ `\path(PATH)`: Returns empty string. Adding `PATH` to the resolving base list.
 
 ### Form bookkeeping & macro-related primitives
 

@@ -7,6 +7,7 @@ import std/strformat
 import activebuffer
 import read
 import ioport
+import path
 
 type
   FncallType = enum
@@ -93,6 +94,10 @@ var sourceFileStack: seq[SourceFileStackEntry] = @[]
 proc registerSourceFile*(f: File, name: string): void =
   sourceFileStack.add(SourceFileStackEntry(line: 0, col: 0, name: name, f: f))
 
+proc useSourceFile(path: string): void =
+  let f = open(path, fmRead)
+  registerSourceFile(f, path)
+
 proc readStr*(source: var SourceFileStackEntry): Option[string] =
   let meta = getMeta()
   var res: string = ""
@@ -111,29 +116,46 @@ proc readStr*(source: var SourceFileStackEntry): Option[string] =
     if res.len() > 0: return some(res)
     else: return none(string)
 
+# NOTE: readStrFromSourceFile and similar functions returns none when the latest imported
+#       source file ends; the interpreter loop might have just quitted upon that. fix this
+#       so that the next-to-latest imported source file could be read after.
+    
 proc readStrFromSourceFile*(): Option[string] =
-  return sourceFileStack[^1].readStr()
+  while sourceFileStack.len() > 0:
+    let res = sourceFileStack[^1].readStr()
+    if res.isNone():
+      discard sourceFileStack.pop()
+      continue
+    return res
+  return none(string)
     
 proc readCharFromSourceFile*(): Option[char] =
-  let sf = sourceFileStack[^1]
-  try:
-    let ch = sf.f.readChar()
-    return some(ch)
-  except:
-    return none(char)
+  while sourceFileStack.len() > 0:
+    let sf = sourceFileStack[^1]
+    try:
+      let ch = sf.f.readChar()
+      return some(ch)
+    except:
+      discard sourceFileStack.pop()
+      continue
+  return none(char)
 
 proc readLineFromSourceFile*(): Option[string] =
-  let sf = sourceFileStack[^1]
-  var res: string = ""
-  try:
-    while true:
-      let ch = sf.f.readChar()
-      res.add(ch)
-      if ch == '\n':
-        return some(res)
-  except:
-    if res.len() > 0: return some(res)
-    else: return none(string)
+  while sourceFileStack.len() > 0:
+    let sf = sourceFileStack[^1]
+    var res: string = ""
+    try:
+      while true:
+        let ch = sf.f.readChar()
+        res.add(ch)
+        if ch == '\n':
+          return some(res)
+    except:
+      if res.len() > 0: return some(res)
+      else:
+        discard sourceFileStack.pop()
+        continue
+  return none(string)
 
 proc getCurrentSourceFile(): SourceFileStackEntry =
   return sourceFileStack[^1]
@@ -304,7 +326,25 @@ proc performOperation(): ExecVerdict =
       if args.len() >= 2:
         changeMeta(args[1][0])
     of "reset.meta":
-      changeMeta(';')  
+      changeMeta(';')
+    of "path":
+      if args.len() < 2:
+        registerError("Path required for \\path")
+      else:
+        registerPathResolvingBase(args[1])
+      res = "" 
+    of "import":
+      if args.len() < 2 or args[1].strip().len() <= 0:
+        registerError("Module name required for \\import")
+      else:
+        let arg1 = args[1].strip()
+        let p = arg1.resolveModuleByName()
+        if p.isNone():
+          registerError(&"Cannot find module {arg1}")
+        else:
+          let fileP = p.get()
+          useSourcefile(fileP)
+      res = ""
 
     # Form bookkeeping & macro-related
     of "def":

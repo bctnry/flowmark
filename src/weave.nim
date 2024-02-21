@@ -3,10 +3,12 @@ import std/options
 import std/cmdline
 import weavepkg/weave
 import weavepkg/read
+import weavepkg/path
 import cmdargparse
 import std/tables
 import std/strutils
 import weavepkg/ioport
+from std/paths import getCurrentDir, parentDir, Path
 
 let helpStr = """
 Usage: weave [options] [file]
@@ -56,11 +58,15 @@ when isMainModule:
         neutralTarget = table[0]["--neutral-target"]
       if table[1] >= paramCount():
         registerSourceFile(file, "__stdin__")
+        registerPathResolvingBase(getCurrentDir().string)
       else:
-        file = open(paramStr(table[1]+1),  fmRead)
-        registerSourceFile(file, paramStr(table[1]+1))
+        let fileName = paramStr(table[1]+1)
+        file = open(fileName,  fmRead)
+        registerSourceFile(file, fileName)
+        registerPathResolvingBase(fileName.Path.parentDir.string)
   else:
     registerSourceFile(file, "__stdin__")
+    registerPathResolvingBase(getCurrentDir().string)
     replMode = true
 
   initEnv()
