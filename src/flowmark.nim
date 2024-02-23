@@ -1,19 +1,19 @@
 import std/syncio
 import std/options
 import std/cmdline
-import weavepkg/weave
-import weavepkg/read
-import weavepkg/path
+import flowmarkpkg/flowmark
+import flowmarkpkg/read
+import flowmarkpkg/path
 import cmdargparse
 import std/tables
 import std/strutils
-import weavepkg/ioport
+import flowmarkpkg/ioport
 from std/paths import getCurrentDir, parentDir, Path
 
 let helpStr = """
-Usage: weave [options] [file]
-weave         -    start repl.
-weave [file]  -    use [file] as input (but don't start repl)
+Usage: flowmark [options] [file]
+flowmark         -    start repl.
+flowmark [file]  -    use [file] as input (but don't start repl)
 
 Options:
     -v          -    show version.

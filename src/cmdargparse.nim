@@ -1,6 +1,5 @@
 import std/tables
 import std/strformat
-import std/cmdline
 
 type
   ArgDescriptor* = tuple

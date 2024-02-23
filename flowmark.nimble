@@ -6,7 +6,7 @@ description   = "A new awesome nimble package"
 license       = "Proprietary"
 srcDir        = "src"
 installExt    = @["nim"]
-bin           = @["weave"]
+bin           = @["flowmark"]
 
 
 # Dependencies
