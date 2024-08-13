@@ -1,6 +1,5 @@
 # Flowmark
 
-**NOTE**: this implementation is deprecated in favour of [ZeTA](https://github.com/flowmark-lang/ZeTA).
 
 Flowmark is a text macro language heavily influenced by TRAC. For an overview of TRAC, see [here](https://sebastian.graphics/blog/trac-language-part-1.html).
 
