@@ -1,2 +1,2 @@
-\import(module3);
+\include(module3);
 \print(\Factorial(5));

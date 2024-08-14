@@ -333,9 +333,9 @@ proc performOperation(): ExecVerdict =
       else:
         registerPathResolvingBase(args[1])
       res = "" 
-    of "import":
+    of "include":
       if args.len() < 2 or args[1].strip().len() <= 0:
-        registerError("Module name required for \\import")
+        registerError("Module name required for \\include")
       else:
         let arg1 = args[1].strip()
         let p = arg1.resolveModuleByName()

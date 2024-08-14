@@ -4,7 +4,7 @@
 
 ## Introduction
 
-Weave is a macro language influenced by TRAC T64.
+Flowmark is a macro language influenced by TRAC T64.
 
 ### A taste of Flowmark
 
@@ -40,9 +40,9 @@ The following is an example of a solution to the Tower of Hanoi problem.
 \print(\call(Hanoi,3,A,C,B));
 ```
 
-### Difference between Weave and TRAC T64
+### Difference between Flowmark and TRAC T64
 
-+ Hashes `#` that starts a function call is replaced with slashes `\\`.
++ Hashes `#` that starts a function call is replaced with slashes `\`.
 + Function call syntax is slightly different (`\func(arg1,arg2,...)` vs. `#(func,arg1,arg2,...)`).
 + Default meta character in Flowmark is semicolon `;` instead of apostrophe `'`.
 + In T64 spaces are preserved, forcing many TRAC source code to be left-aligned. In Flowmark, any consequential whitespaces after a slash `\` is ignored altogether; this allows one to indent their code; if whitespaces are needed, one could always use the protective parentheses.
@@ -53,9 +53,9 @@ The following is an example of a solution to the Tower of Hanoi problem.
 ### How to use the CLI
 
 ```
-Usage: weave [options] [file]
-weave         -    start repl.
-weave [file]  -    use [file] as input (but don't start repl)
+Usage: flowmark [options] [file]
+flowmark         -    start repl.
+flowmark [file]  -    use [file] as input (but don't start repl)
 
 Options:
     --version, -v                 -    show version.
@@ -83,21 +83,21 @@ The actual algorithm goes as follows:
 2. Initialize the neutral string buffer with an empty string and the active string buffer with the source text.
 3. Starting from the left-end of the active string, check the beginning of the string:
    * If there isn't any character for checking (i.e. the active string is empty), initialize both the neutral string buffer and the active string buffer as in step 2, i.e. clears the neutral string buffer and load the idling procedure into the active string buffer. Restart step 3.
-   * Or, if the first character is a left parenthesis =(= , find the /matching/ right parenthesis =)=.
+   * Or, if the first character is a left parenthesis `(` , find the *matching* right parenthesis `)`.
      * If such a matching right parenthesis cannot be found, discard everything in neutral and active string buffer, initialize both as in step 2, then restart step 3. A syntax error should be reported here.
      * Or, if such a right parenthesis can indeed be found, the contents between the left and this right parenthesis (not including the parentheses) is inserted to the right-end of neutral string buffer. Restart step 3 from the next character of this right parenthesis.
-   * Or, if the beginning of the active string is a slash =\=, this could mean the following things:
+   * Or, if the beginning of the active string is a slash `\`, this could mean the following things:
      * An active or a neutral function call begins.
      * A "whitespace escape sequence" begins. (explained below)
      Check the following characters.
      * If there isn't any more character, discard everything in neutral and active string buffer, initialize both as in step 2, then restart step 3. (_{This situation is handled as if it forms a call to some "null function" which returns an empty string.})
      * Or, if it's followed by:
-       * A left parenthesis =(= (the full prefix would be =\(= );
-       * Or a slash followed by a left parenthesis =\(= (the full prefix would be =\\(= ),
+       * A left parenthesis `(` (the full prefix would be `\(` );
+       * Or a slash followed by a left parenthesis `\(` (the full prefix would be `\\(` ),
        (_{it's also handled as if it forms a call to some "null function" which returns an empty string regardless of its arguments.}) Find the matching right parenthesis and remove everything related (including the slashes, the parentheses and the characters within), and restart step 3 at the next character of the right parenthesis. (_{Users may use this semantics as some kind of commenting construct.})
      * Or, if it's followed by a whitespace character (i.e. spaces, tabs, carriage returns, linefeeds, vertical tabs), keep examine the active string and take as much such characters as possible from the left-end, until the right-end of the active string or a non-whitespace character is reached. The slash and these whitespace characters are then discarded. Restart step 3. (_{This is seen as the same as the "null function call" situation above.})
-     * Or, if it's followed by a slash =\= (the full prefix would be =\\= ), this function call would be a *neutral* call. Record this and then do the same thing as the next branch starting from the next character.
-     * Or, if the following character is not one of the ones which can start a freeform macro, i.e. not one of hash =#=, tilde =~=, backtick =`=, dollar sign =$=, percent sign =%=, circumflex =^=, ampersand =&= and underscore =_=, this is the beginning of a normal *active* function call. Examine the active string and take as much non-space/tab characters as possible from the left-end, until the right-end of the active string, a space, a tab, a left parenthesis =(= or a right parenthesis =)= is reached. (_{The characters taken would be the name of the function that would be called.}) Record the current length of the neutral string as the beginning of a function call, and append them to the right-end of the neutral string. Now, consider the ending situation this time:
+     * Or, if it's followed by a slash `\` (the full prefix would be `\\` ), this function call would be a *neutral* call. Record this and then do the same thing as the next branch starting from the next character.
+     * Or, if the following character is not one of the ones which can start a freeform macro, i.e. not one of hash `#`, tilde `~`, backtick, dollar sign `$`, percent sign `%`, circumflex `^`, ampersand =&= and underscore `_`, this is the beginning of a normal *active* function call. Examine the active string and take as much non-space/tab characters as possible from the left-end, until the right-end of the active string, a space, a tab, a left parenthesis `(` or a right parenthesis `)` is reached. (_{The characters taken would be the name of the function that would be called.}) Record the current length of the neutral string as the beginning of a function call, and append them to the right-end of the neutral string. Now, consider the ending situation this time:
        + If a left parenthesis is reached, (_{then this funcion call comes with an argument list.}) Record the current length of neutral string as the end of the function name (and the beginning of the first argument) and remove this left parenthesis from the active string.
        + Or else, (_{this function call has a function name but does not come with an argument list, thus it should be treated as if the right parenthesis for the arglist of this call already occured.}) Check if there's a function with the specified name.
 	 + If the name is empty, delete the neutral string and the active string, initialize them as in step 2, then restart step 3.
@@ -105,31 +105,31 @@ The actual algorithm goes as follows:
 	 + If the name is not empty and is not a defined function, report a name error, remove the registered call from the calling stack.
        Then, restart step 3.
      * Or else, the slash itself is added to the right-end of the neutral string. Restart step 3.
-   * Or, if the first character is a comma =,= , the actions taken depend on if there's a function call registered already.
+   * Or, if the first character is a comma `,` , the actions taken depend on if there's a function call registered already.
      * If there is not, remove the comma from the active string, add it to the right-end of neutral string, and restart step 3.
      * If there is, then it shows that an argument for the latest registered function call is ending. Mark the current length of neutral string as the end of the last argument. Restart step 3.
-   * Or, if the first character is a right parenthesis =)= , check if there's a function call already registered.
+   * Or, if the first character is a right parenthesis `)` , check if there's a function call already registered.
      * If there is not, remove the parenthesis from the active string and add it to the neutral string.
      * If there is, then:
-       1. Retrieve the /latest/ registered function call with the recorded marks and extract the function name and all the arguments with it from the neutral string.
+       1. Retrieve the *latest* registered function call with the recorded marks and extract the function name and all the arguments with it from the neutral string.
        2. Remove this function call from the stack.
        3. Delete everything in the neutral string buffer after the beginning of the latest registered function call.
        4. Perform the operation accordingly; but if the call is to a name that's not a built-in function, do nothing (maybe a name error should be reported here).
        Then, depending on whether (1) it returns a null value (i.e. empty string), (2) it's an active function call or a neutral function call and (3) the latest registered function call is to a built-in function name:
        * If it returns null, then no operation is done.
        * If it's a call to a function name that's not built-in, treat it as if it returns null, i.e. no opertion is done.
-       * If it's an active function call, the nominated result of the operation is inserted to the /left-end/ of the active string; i.e. the result of an active function call immediately gets processed next.
-       * If it's a neutral function call, the nominated result of the operation is appended to the /right-end/ of the neutral string.
+       * If it's an active function call, the nominated result of the operation is inserted to the *left-end* of the active string; i.e. the result of an active function call immediately gets processed next.
+       * If it's a neutral function call, the nominated result of the operation is appended to the *right-end* of the neutral string.
        After all this is done, remove the function call from the stack and restart step 3.
-   * Or, if the first character is an at-sign =@=, then the next character after that, no matter what kind of character it is, is appended to the right-end of the neutral string. At-sign =@= in Flowmark is used as a "global escape character". Restart step 3 from the next character /after/ the character that's being appended.
-   * Or, if the beginning of the string has a prefix that has a previously defined freeform macro, push the corresponding string onto the active string stack, and restart step 3. (_{This rule is put here since one cannot simply append the corresponding string to the left-end of the activ string because forward-reading (explaind later) primitives directly act upon the active string /previous to the expansion of the freeform macro/.})
+   * Or, if the first character is an at-sign `@`, then the next character after that, no matter what kind of character it is, is appended to the right-end of the neutral string. At-sign `@` in Flowmark is used as a "global escape character". Restart step 3 from the next character *after* the character that's being appended.
+   * Or, if the beginning of the string has a prefix that has a previously defined freeform macro, push the corresponding string onto the active string stack, and restart step 3. (_{This rule is put here since one cannot simply append the corresponding string to the left-end of the activ string because forward-reading (explaind later) primitives directly act upon the active string *previous to the expansion of the freeform macro*.})
    * Or, if none of the rules mentioned above applies, remove the first character from the active string and add it to the neutral string. Restart step 3.
 
 Note that this description of algorithm does not mention "idling procedure" like TRAC; while it's possible in Flowmark to use an idling procedure like TRAC, this implementation does not use one and its REPL is implemented separately instead.
 
-## Defining text macros in Weave
+## Defining text macros in Flowmark
 
-In Weave there are two kinds of macros, called normal macro and freeform macro respectively. 
+In Flowmark there are two kinds of macros, called normal macro and freeform macro respectively. 
 
 ### Defining normal macro
 
@@ -176,13 +176,51 @@ The concept of piece in Flowmark is quite important; we'll see this very soon.
 
 Flowmark supports *forward-reading*, which allows text macros themselves to read the upcoming source text themselves instead of delegating the reading to the processing algorithm; this is similar to reader macro in LISPs, the difference being forward-reading occurs at runtime.
 
+All forward-reading is **destructive**, i.e. the piece/character being read would be removed from the active buffer.
+
+All forward-reading primitives in Flowmark start reading from the **first canonical position**. The first canonical position refers to the first position in the source code after the call to the primitive where the source code won't be treated as special characters thus making it make sense to use it as the return value. Consider this example:
+
+```
+\def.free(^,(\format.superscript(\\next.piece)));
+\def.free(_,(\format.subscript(\\next.char)));
+^ABC
+_DEF
+```
+
+When called, `^` expands into the call `\format.superscript(\\next.piece)` and `_` expands into the call `\format.subscript(\\next.char))`, thus the last two lines is equivalent to:
+
+```
+\format.superscript(\\next.piece)ABC
+\format.subscript(\\next.char)DEF
+```
+
+It makes sense for the call to `\\next.piece` to read **after** the right parenthesis and returns the string `ABC` because `)` is not a logical piece (note that `@)` is used to refer to the right parenthesis character), but it wouldn't make sense for `\\next.char` to return the exact next character after the call, which would always be `)` and renders the whole macro useless. 
+
+Note that the first canonical position is different for different forward-reading primitives. `\next.piece` reads the next piece, which could be empty; but `\next.char` must go over any empty piece until it hits a non-empty piece. Consider this example:
+
+```
+\call(macro1,\call(macro2,\next.piece),)ABC
+\call(macro1,\call(macro2,\next.char),)DEF
+```
+
+The call to `\next.piece` in the first line returns the empty string (read after the comma `,`), because it makes sense in concept to have an empty piece; but the call to `\next.char` in the second line goes past the empty piece (second argument to the call of `macro1`) and returns `D`, because empty string does not have characters to take.
+
+The following things is considered to be a **piece**:
+
++ Any call; the call is returned as is, i.e. not evaluated.
++ A quoted string; if such a string is encountered, the whole string is considered one piece. e.g. the `\next.piece()` in `\next.piece()(abc)` returns `abc`.
++ An escaped character. The character itself is considered one piece, e.g. the `\next.piece()` in `\next.piece()@\` returns `\` instead of `@\`.
++ A single character. e.g. the `\next.piece()` in `\next.char()abc` returns `a` instead of `abc`.
++ Any empty string.
+
+`\next.char` is thus defined to return the first character from the first non-empty piece (the rest of the piece is not consumed).
+
 ### Freeform macro
 
 A *freeform macro* is a kind of "special text macro" that's directly expanded during the execution of the processing algorithm instead of full/partial calling (i.e. by primitives like `call` and `recite.*`)
 
 The name for a freeform macro can only contain the following characters:
 
-+ A hash `#`;
 + A tilde `~`;
 + A backtick <code>`</code>;
 + A dollar sign `$`;
@@ -215,6 +253,7 @@ This would be the equivalent to:
 Since Flowmark was originally intended to be the foundation language of a typesetting toolkit like TeX, instead of Standard Output/Standard Error (which are separate but both are normally redirected to the console) like in POSIX-compliant systems, in Flowmark there's Default Print/Default Neutral/Default Out:
 
 + Default Neutral simply means the neutral string buffer after the execution of the last command group. It's intended for text macro expansion, e.g. having a Flowmark source file expand into an HTML or Postscript file.
+  + This also means that the use of meta character `;` is discouraged in pretty much most circumstances other than under REPL.
 + Default Print always mean the console. This is where you write your output to if you're writing an interactive program.
 + Default Out refers the current `out` port used by the `\out` primitive ("port" here is a term to refer to a system internal buffer you write to). `out` ports are intended for *generating* files (instead of *expanding* like in Default Neutral).
 
@@ -224,17 +263,9 @@ The content of Default Neutral and Default Out is lost if no target is specified
 
 Flowmark is largely text-oriented, but there are times when numeric or boolean calculations are needed.
 
-There are four kinds (well technically three) of non-text literals in Flowmark:
+There are only two kinds of non-text literals in Flowmark: integers and floating-point numbers. Primitives that requires numeric arguments would remove the surrounding whitespaces of the texts passed as arguments and tries to interpret it as corresponding numeric values using certain
 
-+ Integers
-+ Floating-point numbers (i.e. the ones with decimals)
-+ Bit vector
-+ Boolean
-  + In Flowmark booleans are actually bit vector of length 1.
-  
-All four of them are (kind of) numeric. Primitives that requires numeric arguments would remove the surrounding whitespaces of the texts passed as arguments and tries to interpret it as corresponding numeric values using certain
-
-### Valid numeric & boolean literals
+### Valid numeric literals
 
 + Bit vectors requires the argument text to contain only `0` and `1`.
 + Boolean requires the argument text, after removing surrounding whitespaces, must be `0` or `1`.
@@ -242,6 +273,27 @@ All four of them are (kind of) numeric. Primitives that requires numeric argumen
 ### Coercion
 
 + Integers, 
+
+### Boolean values
+
+The only false value in Flowmark is the empty string; all values that are not an empty string are considered to be of the boolean value "true". One should not check if a numeric value is 0 by checking if that value is false as a boolean, because in Flowmark the string `0` is considered true.
+
+Boolean primitives (`\and`, `\or`, `\not`) "carries" their operands when evaluating and uses the string `1` as the default true value. e.g.:
+
+```
+\and(a)       \((returns: a))
+\and()        \((returns: 1))
+\and(a,)      \((returns: empty string, because the second argument is empty string))
+\and(a,b)     \((returns: b, because first "a" is evaluated and then "b")
+\or()         \((returns: empty string))
+\or(a)        \((returns: a))
+\or(a,b)      \((returns: a, because first "a" is evaluated and is already true.))
+\or(,b)       \((returns: b, because the first argument is empty string and
+                          the second argument is checked.))
+\or(,\and(a,b))    \((returns: b))
+\not(blah)    \((returns: empty string))
+\not()        \((returns: 1))
+```
 
 ## Keywords
 
@@ -262,18 +314,18 @@ But if `Factorial` is defined as a keyword, one must invoke it like this:
 \Factorial(5);
 ```
 
-Keywords are intended to be a mechanism to extend the language itself
+Keywords are intended to be a mechanism to extend the language itself.
 
 
 ## Path & import
 
 Flowmark supports importing other source files (in the form of primitive `\import`); all the result from the imported file would be carried over. Flowmark reads the base directory from three source for module name resolving:
 
-+ Environment variable `WEAVE_IMPORT_PATH`;
++ Environment variable `FLOWMARK_IMPORT_PATH`;
 + The parent directory of the input file;
 + Any path added with the `\path` primitive.
 
-One can specify multiple path in the environment variable `WEAVE_IMPORT_PATH` by separating them with semicolon `;`.
+One can specify multiple path in the environment variable `FLOWMARK_IMPORT_PATH` by separating them with semicolon `;`.
 
 ## Primitives
 
@@ -285,7 +337,7 @@ One can specify multiple path in the environment variable `WEAVE_IMPORT_PATH` by
 + `\debug.list_names`*:
 + `\set.meta(STR)`: Returns empty string. Set the meta character to the first character of string `STR`.
 + `\reset.meta`: Returns empty string. Set the meta character to semicolon `;`, the default used by Flowmark.
-+ `\import(MODULE)`: Returns empty string. Import the target module `MODULE`. Although it returns empty string, but the effects the imported module has on neutral or any out port will remain.
++ `\include(FILE)`: Returns empty string. The file found with the name `FILE` is executed, and its effect on neutral, out ports and the current evaluation environment is kept, just like the content of the file being included is in the file that calls `\include`.
 + `\path(PATH)`: Returns empty string. Adding `PATH` to the resolving base list.
 
 ### Form bookkeeping & macro-related primitives
@@ -320,9 +372,18 @@ Flowmark has the following partial calling primitives; all of them returns empty
 
 ### Forward-reading primitives
 
-+ `\next.piece` * :
-+ `\next.char`: Read the next character from the current source file. Returns an empty string when end-of-file is reached.
-+ `\next.line`: Reads till the next linefeed from current source file. The result contains the read linefeed character. Returns an empty string when end-of-file is reached.
++ `\next.piece` * : Read the next piece from the current source file.
++ `\next.char`: Read the next character from the current source file. This always returns a character, except when end-of-file is reached, in which case it returns an empty string.
+
+### Call manipulating
+
++ `\get.call_head(STR)`*: Retrieve the "head" from the call represented by `STR`.
++ `\get.call_arg(N,STR)`*: Retrieve the `N`-th argument from the call represented by `STR`.
++ `\set.call_head(STR)`*: Sets the "head" of the call represented by `STR`.
++ `\set.call_arg(N,STR)`*: Sets the `N`-th argument of the call represented by `STR`.
++ `\to.neutral(STR)`*: Changes the call represented by `STR` into a neutral call regardless of the type of the call.
+  + e.g. assume there is `\def(Call,(\some_keyword(arg1,arg2,arg3)))`; `\to.neutral(\\call(Call))` would be evaluated to `\to.neutral((\some_keyword(arg1,arg2,arg3)))` which would be evaluated to `\\some_keyword(arg1,arg2,arg3)` (which would then be put into active buffer and invoked). To put the result of such change into the neutral buffer, use `\\to.neutral`.
++ `\to.active(STR)`*:  Changes the call represented by `STR` into an active call regardless of the type of the call.
 
 ### Algorithmic primitives
 
@@ -337,16 +398,14 @@ Flowmark has the following partial calling primitives; all of them returns empty
 + `\is.empty(ARG1)` * :
 + `\is.int(ARG1)` * : Returns a boolean value indicating if `ARG` is a valid integer, `1` means it **is** valid, `0` means it is not.
 + `\is.float(ARG1)` * :
-+ `\is.bit(ARG1)` * :
-+ `\to.bit(ARG1,WIDTH)` * : Returns the conversion result of []. `WIDTH` can be empty; when `WIDTH` is empty, 
 
 ### I/O primitives
 
 + `\read.str`:
 + `\read.piece` * :
 + `\print(X)`: Returns empty string. Put `X` to the current print port.
-+ `\print.form(NAME)`:
-+ `\print.free(PAT)`:
++ `\print.form(NAME)`: Returns empty string.
++ `\print.free(PAT)`: Returns empty string. Put the definition of the freeform macro `PAT` to the current print port.
 + `\out(X1,X2,...)`: Returns empty string. Output `X1`, `X2`, ... to the current default output port.
 + `\set.out(ID)`: Returns empty string. Set current output port.
 + `\reset.out`: Returns empty string. Resets the current output port to port 0. (Equivalent to `\set.out(0)`)
@@ -356,10 +415,16 @@ Flowmark has the following partial calling primitives; all of them returns empty
 
 ### Branching
 
+#### `if`s
+
 + `\ifeq(STR1,STR2,CLAUSE1,CLAUSE2)`:
 + `\ifeq.int(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
 + `\ifeq.float(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
 + `\ifne(STR1,STR2,CLAUSE1,CLAUSE2)`:
 + `\ifne.int(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
 + `\ifne.float(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
+
+#### `switch`
+
++ `\switch.char(STR,PAT1,CLAUSE1,APT2,CLAUSE2,...)`*:
 

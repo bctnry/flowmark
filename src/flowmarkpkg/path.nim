@@ -8,7 +8,7 @@ from std/os import fileExists
 
 var pathResolvingBaseList: seq[string] = @[]
 
-let envBase = getEnv("WEAVE_IMPORT_PATH")
+let envBase = getEnv("FLOWMARK_IMPORT_PATH")
 if envBase != "":
   for x in envBase.split(';'):
     pathResolvingBaseList.add(x)
@@ -18,7 +18,7 @@ proc registerPathResolvingBase*(x: string): void =
 
 proc resolveModuleByName*(x: string): Option[string] =
   # Starting from the end so the ones added later always get higher priority
-  let xr = x.Path.changeFileExt(".w")
+  let xr = x.Path.changeFileExt(".fm")
   var i = pathResolvingBaseList.len()-1
   while i >= 0:
     let p: Path = pathResolvingBaseList[i].Path / xr

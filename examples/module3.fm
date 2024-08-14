@@ -1,4 +1,4 @@
-\import(module1);
+\include(module1);
 \def.free($,(\print((
 ))));
 \def(Hanoi,\
