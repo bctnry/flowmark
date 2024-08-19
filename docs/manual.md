@@ -165,10 +165,11 @@ A *piece* (in Flowmark terminology) is a minimal semantically meaningful substri
 
 + A single character that is not a part of any special construct (either by themselves being not a part of any special construct or by escaping with at-sign `@`);
 + A function call, both active and neutral;
++ A quoted string;
 + A whitespace escape sequence;
 + A freeform macro name (explained later);
 
-The concept of piece in Flowmark is quite important; we'll see this very soon.
+The concept of piece in Flowmark is quite important; we'll see this in the next section about forward-reading.
 
 ### Forward-reading
 
@@ -202,14 +203,6 @@ Note that the first canonical position is different for different forward-readin
 ```
 
 The call to `\next.piece` in the first line returns the empty string (read after the comma `,`), because it makes sense in concept to have an empty piece; but the call to `\next.char` in the second line goes past the empty piece (second argument to the call of `macro1`) and returns `D`, because empty string does not have characters to take.
-
-The following things is considered to be a **piece**:
-
-+ Any call; the call is returned as is, i.e. not evaluated.
-+ A quoted string; if such a string is encountered, the whole string is considered one piece. e.g. the `\next.piece()` in `\next.piece()(abc)` returns `abc`.
-+ An escaped character. The character itself is considered one piece, e.g. the `\next.piece()` in `\next.piece()@\` returns `\` instead of `@\`.
-+ A single character. e.g. the `\next.piece()` in `\next.char()abc` returns `a` instead of `abc`.
-+ Any empty string.
 
 `\next.char` is thus defined to return the first character from the first non-empty piece (the rest of the piece is not consumed).
 
