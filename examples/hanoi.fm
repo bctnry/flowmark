@@ -1,8 +1,9 @@
 \def.free($,(\print((
 ))));
-\def(Hanoi,\
-  (\ifeq.int(<1>,0,,\
-    (\ifeq.int(<1>,1,\
+\def.macro(Hanoi,n,from,to,via,\
+  (\if(\eq.int(<1>,0),
+    (\print()),\
+    (\if(\eq.int(<1>,1),\
       (\print(Move from <from> to <to>)$),\
       (\call(Hanoi,\sub.int(<1>,1),<from>,<via>,<to>)\
       \print(Move from <from> to <to>)$\
@@ -10,6 +11,5 @@
     ))\
   ))\
 );
-\init.macro(Hanoi,,from,to,via);
 \print(\call(Hanoi,3,A,C,B));
 

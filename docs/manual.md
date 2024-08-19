@@ -4,20 +4,19 @@
 
 ## Introduction
 
-Flowmark is a macro language influenced by TRAC T64.
+Flowmark is a macro language influenced by TRAC T64. What Flowmark is to TRAC is what Factor is to Forth and what Racket is to Scheme.
 
 ### A taste of Flowmark
 
 The following is an example of the factorial function
 
 ```
-\def(Factorial,(\
+\def.macro(Factorial,(\
   \ifeq.int(<1>,0,\
     0,\
     (\ifeq.int(<1>,1,1,(\mult.int(<1>,\call(Factorial,\sub.int(<1>,1))))))\
   )\
 ));
-\init.macro(Factorial);
 \print(\call(Factorial,5));
 ```
 
@@ -26,7 +25,7 @@ The following is an example of a solution to the Tower of Hanoi problem.
 ```
 \def.free($,(\print((
 ))));
-\def(Hanoi,\
+\def.macro(Hanoi,n,from,to,via,\
   (\ifeq.int(<1>,0,,\
     (\ifeq.int(<1>,1,\
       (\print(Move from <from> to <to>)$),\
@@ -36,7 +35,6 @@ The following is an example of a solution to the Tower of Hanoi problem.
     ))\
   ))\
 );
-\init.macro(Hanoi,,from,to,via);
 \print(\call(Hanoi,3,A,C,B));
 ```
 
@@ -122,7 +120,7 @@ The actual algorithm goes as follows:
        * If it's a neutral function call, the nominated result of the operation is appended to the *right-end* of the neutral string.
        After all this is done, remove the function call from the stack and restart step 3.
    * Or, if the first character is an at-sign `@`, then the next character after that, no matter what kind of character it is, is appended to the right-end of the neutral string. At-sign `@` in Flowmark is used as a "global escape character". Restart step 3 from the next character *after* the character that's being appended.
-   * Or, if the beginning of the string has a prefix that has a previously defined freeform macro, push the corresponding string onto the active string stack, and restart step 3. (_{This rule is put here since one cannot simply append the corresponding string to the left-end of the activ string because forward-reading (explaind later) primitives directly act upon the active string *previous to the expansion of the freeform macro*.})
+   * Or, if the beginning of the string has a prefix that has a previously defined freeform macro, push the corresponding string onto the active string stack, and restart step 3. (_{This rule is put here since one cannot simply append the corresponding string to the left-end of the active string because forward-reading (explaind later) primitives directly act upon the active string *previous to the expansion of the freeform macro*.})
    * Or, if none of the rules mentioned above applies, remove the first character from the active string and add it to the neutral string. Restart step 3.
 
 Note that this description of algorithm does not mention "idling procedure" like TRAC; while it's possible in Flowmark to use an idling procedure like TRAC, this implementation does not use one and its REPL is implemented separately instead.
@@ -391,7 +389,6 @@ Flowmark has the following partial calling primitives; all of them returns empty
 + `\add.float(ARG1,...)`, `\sub.float(ARG1,...)`, `\mult.float(ARG1,...)`, `\div.float(ARG1,...)`
 + `\eq.int(ARG1,ARG2)` * , `\le.int(ARG1,ARG2)` * , `\ge.int(ARG1,ARG2)` * , `\lt.int(ARG1,ARG2)` * , `\gt.int(ARG1,ARG2)` * :
 + `\eq.float(ARG1,ARG2)` * , `\le.float(ARG1,ARG2)` * , `\ge.float(ARG1,ARG2)` * , `\lt.float(ARG1,ARG2)` * , `\gt.float(ARG1,ARG2)` * :
-+ `\and.bit(ARG1,ARG2)` * , `\or.bit(ARG1,ARG2)` * , `\not.bit(ARG1)` * , `\xor.bit(ARG1,ARG2)` * :
 + `\and(ARG1,...)` * :
 + `\or(ARG1,...)` * :
 + `\not(ARG1,...)` * :
@@ -415,16 +412,7 @@ Flowmark has the following partial calling primitives; all of them returns empty
 
 ### Branching
 
-#### `if`s
-
-+ `\ifeq(STR1,STR2,CLAUSE1,CLAUSE2)`:
-+ `\ifeq.int(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
-+ `\ifeq.float(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
-+ `\ifne(STR1,STR2,CLAUSE1,CLAUSE2)`:
-+ `\ifne.int(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
-+ `\ifne.float(NUM1,NUM2,CLAUSE1,CLAUSE2)`:
-
-#### `switch`
-
-+ `\switch.char(STR,PAT1,CLAUSE1,APT2,CLAUSE2,...)`*:
++ `\if(COND,THEN,ELSE)`*:
++ `\cond(COND1,CLAUSE1,COND2,CLAUSE2,...)`*:
++ `\switch(STR,PAT1,CLAUSE1,APT2,CLAUSE2,...)`*:
 

@@ -310,7 +310,6 @@ proc updateCurrentLineCol(st: int, e: int): void =
 proc performOperation(): ExecVerdict =
   let fncall = fncalls.pop()
   let args = getargs(fncall.mark)
-  # echo "args=", args
   neutral = neutral[0..<fncall.mark[0]]
   var shouldContinue = true
   var res = ""
@@ -489,6 +488,18 @@ proc performOperation(): ExecVerdict =
     of "div.float":
       res = $(args[1].strip().parseFloat() / args[2].strip().parseFloat())
 
+    of "eq.int":
+      res = if args[1].strip().parseInt() == args[2].strip().parseInt(): "1" else: ""
+    of "le.int":
+      res = if args[1].strip().parseInt() <= args[2].strip().parseInt(): "1" else: ""
+    of "lt.int":
+      res = if args[1].strip().parseInt() < args[2].strip().parseInt(): "1" else: ""
+    of "ge.int":
+      res = if args[1].strip().parseInt() >= args[2].strip().parseInt(): "1" else: ""
+    of "gt.int":
+      res = if args[1].strip().parseInt() > args[2].strip().parseInt(): "1" else: ""
+
+
     # I/O primitives
     of "read.str":
       let readres = readStrTillMeta()
@@ -526,19 +537,19 @@ proc performOperation(): ExecVerdict =
       res = ""
 
     # Branching
-    of "ifeq":
-      res = if args[1] == args[2]: args[3] else: args[4]
-    of "ifeq.int":
-      res = if args[1].strip().parseInt() == args[2].strip().parseInt(): args[3] else: args[4]
-    of "ifeq.float":
-      res = if args[1].strip().parseInt() == args[2].strip().parseInt(): args[3] else: args[4]
-    of "ifne":
-      res = if args[1] != args[2]: args[3] else: args[4]
-    of "ifne.int":
-      res = if args[1].strip().parseInt() != args[2].strip().parseInt(): args[3] else: args[4]
-    of "ifne.float":
-      res = if args[1].strip().parseInt() != args[2].strip().parseInt(): args[3] else: args[4]
-
+    of "if":
+      res = if args[1] == "": args[3] else: args[2]
+    of "cond":
+      var i = 1
+      while true:
+        if i >= args.len:
+          res = ""
+          break
+        elif args[i] != "":
+          res = args[i+1]
+          break
+        i += 2
+          
     else:
       # check for custom keyword.
       var keywordFound = false
@@ -597,7 +608,6 @@ proc process*(source: string = idle): bool =
       if cnt >= 0:
         neutral = ""
         registerError("Right parenthesis required")
-        echo active
         if active.len() > 1:
           discard active.pop()
           activeLen = active.currentPieceLen()
